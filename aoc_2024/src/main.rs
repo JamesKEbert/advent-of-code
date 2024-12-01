@@ -5,23 +5,105 @@ fn main() {
     println!("Hello, world!");
 }
 
-fn logging() {
-    env_logger::init();
-}
+pub mod day_1 {
+    pub fn sort_list(short_first: bool, list: &mut Vec<i32>) -> Vec<i32> {
+        info!("Sorting List...");
 
-fn day_1(left_list: &mut [i32], right_list: &mut [i32]) {
-    logging();
-    info!("Running Day 1");
-    info!("Left List  '{:?}'", left_list);
-    info!("Right List '{:?}'", right_list);
-}
+        // Suboptimal how with loop?
+        while true {
+            let mut swaps = 0;
+            info!("Sorting...");
+            for index in 0..list.len() - 1 {
+                let value = list[index];
+                let next_value = list[index + 1];
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+                // debug!(
+                //     "list[{}]:'{}', list[{}]:'{}'",
+                //     index,
+                //     value,
+                //     index + 1,
+                //     next_value
+                // );
 
-    #[test]
-    fn test_day_1() {
-        day_1(&mut [1, 3, 2, 5, 6], &mut [1, 3, 2, 5, 6]);
+                if (value > next_value) && short_first {
+                    list.swap(index, index + 1);
+                    swaps += 1;
+                }
+
+                if (value < next_value) && !short_first {
+                    list.swap(index, index + 1);
+                    swaps += 1;
+                }
+
+                info!("List '{:?}'", list);
+            }
+            if swaps == 0 {
+                info!("Sorted List {:?}", list);
+                info!("Sorting Complete");
+                break;
+            }
+        }
+
+        list.clone()
+    }
+
+    pub fn tupilize(left_list: &mut Vec<i32>, right_list: &mut Vec<i32>) -> Vec<(i32, i32)> {
+        info!("Tupalizing Lists");
+        info!("Left List  '{:?}'", left_list);
+        info!("Right List '{:?}'", right_list);
+        let mut list: Vec<(i32, i32)> = vec![];
+        for index in 0..left_list.len() {
+            list.append(&mut vec![(left_list[index], right_list[index])]);
+        }
+        info!("Tupalized List {:?}", list);
+        list
+    }
+
+    pub fn base(left_list: &mut Vec<i32>, right_list: &mut Vec<i32>) -> i32 {
+        info!("Running Day 1");
+        info!("Left List  '{:?}'", left_list);
+        info!("Right List '{:?}'", right_list);
+
+        2
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn init() {
+            env_logger::builder().is_test(true).try_init().ok();
+        }
+
+        #[test]
+        fn sort_array() {
+            init();
+            let sorted_list = sort_list(true, &mut vec![3, 4, 2, 1, 3, 3]);
+            assert_eq!(sorted_list, vec![1, 2, 3, 3, 3, 4])
+        }
+
+        #[test]
+        fn sort_array_reverse() {
+            init();
+            let sorted_list = sort_list(false, &mut vec![3, 4, 2, 1, 3, 3]);
+            assert_eq!(sorted_list, vec![4, 3, 3, 3, 2, 1])
+        }
+
+        #[test]
+        fn test_tupalize() {
+            init();
+            let tupalized_list = tupilize(&mut vec![1, 2, 3, 3, 3, 4], &mut vec![3, 3, 3, 4, 5, 9]);
+            assert_eq!(
+                tupalized_list,
+                vec![(1, 3), (2, 3), (3, 3), (3, 4), (3, 5), (4, 9)]
+            );
+        }
+
+        #[test]
+        fn example_input() {
+            init();
+            let total_distance = base(&mut vec![3, 4, 2, 1, 3, 3], &mut vec![4, 3, 5, 3, 9, 3]);
+            assert_eq!(total_distance, 11);
+        }
     }
 }
