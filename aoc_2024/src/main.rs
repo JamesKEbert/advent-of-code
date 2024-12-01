@@ -5,6 +5,7 @@ fn main() {
     println!("Hello, world!");
 }
 
+pub mod day_1_data;
 pub mod day_1 {
     pub fn sort_list(short_first: bool, list: &mut Vec<i32>) -> Vec<i32> {
         info!("Sorting List...");
@@ -81,6 +82,8 @@ pub mod day_1 {
 
     #[cfg(test)]
     mod tests {
+        use crate::day_1_data::{return_left_list, return_right_list};
+
         use super::*;
 
         fn init() {
@@ -117,6 +120,14 @@ pub mod day_1 {
             let total_distance =
                 calculate_distance(&mut vec![3, 4, 2, 1, 3, 3], &mut vec![4, 3, 5, 3, 9, 3]);
             assert_eq!(total_distance, 11);
+        }
+
+        #[test]
+        fn puzzle_input() {
+            init();
+            let total_distance =
+                calculate_distance(&mut return_left_list(), &mut return_right_list());
+            assert_eq!(total_distance, 2430334);
         }
     }
 }
