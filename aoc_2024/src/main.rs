@@ -12,7 +12,7 @@ pub mod day_1 {
         // Suboptimal how with loop?
         while true {
             let mut swaps = 0;
-            info!("Sorting...");
+            debug!("Sorting...");
             for index in 0..list.len() - 1 {
                 let value = list[index];
                 let next_value = list[index + 1];
@@ -35,10 +35,10 @@ pub mod day_1 {
                     swaps += 1;
                 }
 
-                info!("List '{:?}'", list);
+                debug!("List '{:?}'", list);
             }
             if swaps == 0 {
-                info!("Sorted List {:?}", list);
+                debug!("Sorted List {:?}", list);
                 info!("Sorting Complete");
                 break;
             }
@@ -49,8 +49,8 @@ pub mod day_1 {
 
     pub fn tupilize(left_list: &mut Vec<i32>, right_list: &mut Vec<i32>) -> Vec<(i32, i32)> {
         info!("Tupalizing Lists");
-        info!("Left List  '{:?}'", left_list);
-        info!("Right List '{:?}'", right_list);
+        debug!("Left List  '{:?}'", left_list);
+        debug!("Right List '{:?}'", right_list);
         let mut list: Vec<(i32, i32)> = vec![];
         for index in 0..left_list.len() {
             list.append(&mut vec![(left_list[index], right_list[index])]);
@@ -59,12 +59,24 @@ pub mod day_1 {
         list
     }
 
-    pub fn base(left_list: &mut Vec<i32>, right_list: &mut Vec<i32>) -> i32 {
-        info!("Running Day 1");
-        info!("Left List  '{:?}'", left_list);
-        info!("Right List '{:?}'", right_list);
+    pub fn calculate_distance(left_list: &mut Vec<i32>, right_list: &mut Vec<i32>) -> i32 {
+        info!("Beginning to calculate distance");
+        debug!("Left List  '{:?}'", left_list);
+        debug!("Right List '{:?}'", right_list);
 
-        2
+        let tupalized_list = tupilize(
+            &mut sort_list(true, left_list),
+            &mut sort_list(true, right_list),
+        );
+
+        info!("Calculating Distance");
+        let mut distance = 0;
+        for tuple in tupalized_list {
+            distance += (tuple.0 - tuple.1).abs();
+        }
+
+        info!("Calculated Distance: '{}'", distance);
+        distance
     }
 
     #[cfg(test)]
@@ -102,7 +114,8 @@ pub mod day_1 {
         #[test]
         fn example_input() {
             init();
-            let total_distance = base(&mut vec![3, 4, 2, 1, 3, 3], &mut vec![4, 3, 5, 3, 9, 3]);
+            let total_distance =
+                calculate_distance(&mut vec![3, 4, 2, 1, 3, 3], &mut vec![4, 3, 5, 3, 9, 3]);
             assert_eq!(total_distance, 11);
         }
     }
