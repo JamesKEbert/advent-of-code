@@ -1,3 +1,5 @@
+use std::{fs, io};
+
 #[macro_use]
 extern crate log;
 
@@ -5,15 +7,52 @@ fn main() {
     println!("Hello, world!");
 }
 
-pub mod day_1_data;
+pub fn read_file(file_path: &str) -> Result<String, io::Error> {
+    info!("Reading File...");
+    let contents = fs::read_to_string(file_path)?;
+    info!("Read File!");
+    trace!("File Contents: {:?}", contents);
+    Ok(contents)
+}
+
+fn test_init() {
+    env_logger::builder().is_test(true).try_init().ok();
+}
+
 pub mod day_1 {
     use std::collections::HashMap;
+
+    use crate::read_file;
+
+    fn parse_day_1_file(file_path: &str) -> (Vec<i32>, Vec<i32>) {
+        info!("Parsing File");
+        let content = read_file(file_path).expect("Content to be read");
+
+        let mut left_list: Vec<i32> = vec![];
+        let mut right_list: Vec<i32> = vec![];
+        let split_content = content.split("\n");
+        for line in split_content {
+            let split_line = line.split("   ");
+            for (index, value) in split_line.enumerate() {
+                let num: i32 = value.parse().expect("To be a valid number");
+                if index == 0 {
+                    left_list.append(&mut vec![num]);
+                } else {
+                    right_list.append(&mut vec![num]);
+                }
+            }
+        }
+        debug!("Left List  '{:?}'", left_list);
+        debug!("Right List '{:?}'", right_list);
+
+        (left_list, right_list)
+    }
 
     pub fn sort_list(short_first: bool, list: &mut Vec<i32>) -> Vec<i32> {
         info!("Sorting List...");
 
         // Suboptimal how with loop?
-        while true {
+        loop {
             let mut swaps = 0;
             debug!("Sorting...");
             for index in 0..list.len() - 1 {
@@ -50,7 +89,7 @@ pub mod day_1 {
         list.clone()
     }
 
-    pub fn tupilize(left_list: &mut Vec<i32>, right_list: &mut Vec<i32>) -> Vec<(i32, i32)> {
+    pub fn tupilize(left_list: Vec<i32>, right_list: Vec<i32>) -> Vec<(i32, i32)> {
         info!("Tupalizing Lists");
         debug!("Left List  '{:?}'", left_list);
         debug!("Right List '{:?}'", right_list);
@@ -60,26 +99,6 @@ pub mod day_1 {
         }
         info!("Tupalized List {:?}", list);
         list
-    }
-
-    pub fn calculate_distance(left_list: &mut Vec<i32>, right_list: &mut Vec<i32>) -> i32 {
-        info!("Beginning to calculate distance");
-        debug!("Left List  '{:?}'", left_list);
-        debug!("Right List '{:?}'", right_list);
-
-        let tupalized_list = tupilize(
-            &mut sort_list(true, left_list),
-            &mut sort_list(true, right_list),
-        );
-
-        info!("Calculating Distance");
-        let mut distance = 0;
-        for tuple in tupalized_list {
-            distance += (tuple.0 - tuple.1).abs();
-        }
-
-        info!("Calculated Distance: '{}'", distance);
-        distance
     }
 
     pub fn count_similarities(list: &mut Vec<i32>) -> HashMap<i32, i32> {
@@ -97,13 +116,39 @@ pub mod day_1 {
         count_map
     }
 
-    pub fn calculate_score(left_list: &mut Vec<i32>, right_list: &mut Vec<i32>) -> i32 {
-        info!("Beginning to calculate score");
+    pub fn calculate_distance(file_path: &str) -> i32 {
+        info!("Beginning to calculate distance");
+
+        let (left_list, right_list) = parse_day_1_file(file_path);
+
         debug!("Left List  '{:?}'", left_list);
         debug!("Right List '{:?}'", right_list);
 
-        let sorted_left_list = sort_list(true, left_list);
-        let count_map = count_similarities(&mut sort_list(true, right_list));
+        let tupalized_list = tupilize(
+            sort_list(true, &mut left_list.clone()),
+            sort_list(true, &mut right_list.clone()),
+        );
+
+        info!("Calculating Distance");
+        let mut distance = 0;
+        for tuple in tupalized_list {
+            distance += (tuple.0 - tuple.1).abs();
+        }
+
+        info!("Calculated Distance: '{}'", distance);
+        distance
+    }
+
+    pub fn calculate_score(file_path: &str) -> i32 {
+        info!("Beginning to calculate score");
+
+        let (left_list, right_list) = parse_day_1_file(file_path);
+
+        debug!("Left List  '{:?}'", left_list);
+        debug!("Right List '{:?}'", right_list);
+
+        let sorted_left_list = sort_list(true, &mut left_list.clone());
+        let count_map = count_similarities(&mut sort_list(true, &mut right_list.clone()));
 
         let mut score = 0;
         for value in sorted_left_list {
@@ -120,32 +165,37 @@ pub mod day_1 {
 
     #[cfg(test)]
     mod tests {
-        use crate::day_1_data::{return_left_list, return_right_list};
+        use crate::test_init;
 
         use super::*;
 
-        fn init() {
-            env_logger::builder().is_test(true).try_init().ok();
+        #[test]
+        fn test_read_file() {
+            test_init();
+            assert_eq!(
+                parse_day_1_file("./src/puzzle_inputs/day_1_sample.txt"),
+                (vec![3, 4, 2, 1, 3, 3], vec![4, 3, 5, 3, 9, 3])
+            );
         }
 
         #[test]
         fn sort_array() {
-            init();
+            test_init();
             let sorted_list = sort_list(true, &mut vec![3, 4, 2, 1, 3, 3]);
             assert_eq!(sorted_list, vec![1, 2, 3, 3, 3, 4])
         }
 
         #[test]
         fn sort_array_reverse() {
-            init();
+            test_init();
             let sorted_list = sort_list(false, &mut vec![3, 4, 2, 1, 3, 3]);
             assert_eq!(sorted_list, vec![4, 3, 3, 3, 2, 1])
         }
 
         #[test]
         fn test_tupalize() {
-            init();
-            let tupalized_list = tupilize(&mut vec![1, 2, 3, 3, 3, 4], &mut vec![3, 3, 3, 4, 5, 9]);
+            test_init();
+            let tupalized_list = tupilize(vec![1, 2, 3, 3, 3, 4], vec![3, 3, 3, 4, 5, 9]);
             assert_eq!(
                 tupalized_list,
                 vec![(1, 3), (2, 3), (3, 3), (3, 4), (3, 5), (4, 9)]
@@ -154,7 +204,7 @@ pub mod day_1 {
 
         #[test]
         fn test_count_similarities() {
-            init();
+            test_init();
             let count_map = count_similarities(&mut vec![4, 3, 5, 3, 9, 3]);
             let mut correct_count_map = HashMap::new();
             correct_count_map.insert(3, 3);
@@ -166,32 +216,16 @@ pub mod day_1 {
 
         #[test]
         fn example_input() {
-            init();
-            let total_distance =
-                calculate_distance(&mut vec![3, 4, 2, 1, 3, 3], &mut vec![4, 3, 5, 3, 9, 3]);
+            test_init();
+            let total_distance = calculate_distance("./src/puzzle_inputs/day_1_sample.txt");
             assert_eq!(total_distance, 11);
         }
 
         #[test]
         fn example_similarity_score() {
-            init();
-            let score = calculate_score(&mut vec![3, 4, 2, 1, 3, 3], &mut vec![4, 3, 5, 3, 9, 3]);
+            test_init();
+            let score = calculate_score("./src/puzzle_inputs/day_1_sample.txt");
             assert_eq!(score, 31);
-        }
-
-        #[test]
-        fn puzzle_input() {
-            init();
-            let total_distance =
-                calculate_distance(&mut return_left_list(), &mut return_right_list());
-            assert_eq!(total_distance, 2430334);
-        }
-
-        #[test]
-        fn puzzle_similarity_score() {
-            init();
-            let score = calculate_score(&mut return_left_list(), &mut return_right_list());
-            assert_eq!(score, 28786472);
         }
     }
 }
