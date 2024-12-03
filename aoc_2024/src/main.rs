@@ -4,21 +4,62 @@ use std::{fs, io};
 extern crate log;
 
 use camino::Utf8PathBuf;
-use clap::Parser;
+use clap::{Parser, Subcommand};
+use day_1::{calculate_distance, calculate_score};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-struct Args {
-    #[arg(short, long)]
-    path: Option<Utf8PathBuf>,
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
 
-    /// Test all AoC days' functions, including against sample data
-    #[arg(long)]
-    test: bool,
+    /// Specify level of logs emitted
+    #[arg(long, default_value_t = log::LevelFilter::Info)]
+    loglevel: log::LevelFilter,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Run Day1 methods against input files
+    Day1 {
+        #[command(subcommand)]
+        command: Day1Commands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum Day1Commands {
+    /// Calculate the Total Distance from the two lists
+    TotalDistance {
+        #[arg(short, long)]
+        path: Utf8PathBuf,
+    },
+    /// Calculate the Similarity Score from two lists
+    Score {
+        #[arg(short, long)]
+        path: Utf8PathBuf,
+    },
 }
 
 fn main() {
-    let args = Args::parse();
+    let cli = Cli::parse();
+
+    let mut builder = colog::default_builder();
+    builder.filter(None, cli.loglevel);
+    builder.init();
+
+    match &cli.command {
+        Commands::Day1 { command } => match command {
+            Day1Commands::TotalDistance { path } => {
+                info!("Command received to calculate Total Distance");
+                println!("Total Distance: {}", calculate_distance(path.clone()));
+            }
+            Day1Commands::Score { path } => {
+                info!("Command received to calculate Similarity Score");
+                println!("Total Similarity Score: {}", calculate_score(path.clone()));
+            }
+        },
+    }
 }
 
 pub fn read_file(file_path: Utf8PathBuf) -> Result<String, io::Error> {
@@ -114,7 +155,8 @@ pub mod day_1 {
         for index in 0..left_list.len() {
             list.append(&mut vec![(left_list[index], right_list[index])]);
         }
-        info!("Tupalized List {:?}", list);
+        info!("Tupalized List");
+        debug!("List: {:?}", list);
         list
     }
 
