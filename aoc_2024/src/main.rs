@@ -397,6 +397,19 @@ mod day_2 {
         return false;
     }
 
+    pub fn count_safe_reports(file_path: Utf8PathBuf) -> i32 {
+        let reports: Vec<Report> = parse_file(file_path);
+        let mut count = 0;
+
+        for report in reports {
+            if validate_report(report) {
+                count += 1;
+            }
+        }
+
+        count
+    }
+
     #[cfg(test)]
     mod tests {
         use crate::test_init;
@@ -467,6 +480,15 @@ mod day_2 {
         fn test_adjacency_levels_true() {
             test_init();
             assert!(validate_report(vec![1, 3, 6, 7, 9]))
+        }
+
+        #[test]
+        fn test_sample_count() {
+            test_init();
+            assert_eq!(
+                2,
+                count_safe_reports(Utf8PathBuf::from("./src/puzzle_inputs/day_2_sample.txt"))
+            )
         }
     }
 }
