@@ -1,4 +1,4 @@
-use std::{fs, io};
+use std::fs;
 
 #[macro_use]
 extern crate log;
@@ -62,12 +62,13 @@ fn main() {
     }
 }
 
-pub fn read_file(file_path: Utf8PathBuf) -> Result<String, io::Error> {
+pub fn read_file(file_path: Utf8PathBuf) -> String {
     info!("Reading File...");
-    let contents = fs::read_to_string(file_path)?;
+    // Using expect here, not doing file validation. If the process fails here, we'll consider that a user error. Obviously validation/handling would be ideal, but I don't care in this context.
+    let contents = fs::read_to_string(file_path).expect("Content to be parsed correctly");
     info!("Read File!");
     trace!("File Contents: {:?}", contents);
-    Ok(contents)
+    contents
 }
 
 #[cfg(test)]
@@ -84,7 +85,7 @@ pub mod day_1 {
 
     fn parse_day_1_file(file_path: Utf8PathBuf) -> (Vec<i32>, Vec<i32>) {
         info!("Parsing File");
-        let content = read_file(file_path).expect("Content to be read");
+        let content = read_file(file_path);
 
         let mut left_list: Vec<i32> = vec![];
         let mut right_list: Vec<i32> = vec![];
@@ -288,6 +289,157 @@ pub mod day_1 {
             test_init();
             let score = calculate_score(Utf8PathBuf::from("./src/puzzle_inputs/day_1_sample.txt"));
             assert_eq!(score, 31);
+        }
+    }
+}
+
+mod day_2 {
+    use camino::Utf8PathBuf;
+
+    use crate::read_file;
+
+    type Report = Vec<Level>;
+    type Level = i32;
+
+    pub fn parse_file(file_path: Utf8PathBuf) -> Vec<Report> {
+        info!("Parsing File");
+        let content = read_file(file_path);
+        let reports_string = content.split("\n");
+
+        let mut reports: Vec<Report> = vec![];
+        for report_string in reports_string {
+            let levels_string = report_string.split(" ");
+            let levels: Vec<Level> = levels_string
+                .map(|level| level.parse::<i32>().expect("To be a valid number"))
+                .collect();
+            reports.append(&mut vec![levels]);
+        }
+        reports
+    }
+
+    #[derive(PartialEq)]
+    enum Direction {
+        Decreasing,
+        Increasing,
+        NotSet,
+    }
+
+    pub fn validate_increasing_or_decreasing(report: Report) -> bool {
+        let mut direction = Direction::NotSet;
+        let mut last_level = report[0];
+        for level in &report[1..] {
+            if direction == Direction::NotSet {
+                if &last_level < level {
+                    direction = Direction::Increasing;
+                } else if &last_level > level {
+                    direction = Direction::Decreasing;
+                }
+            }
+
+            if direction == Direction::Increasing && level < &last_level {
+                return false;
+            }
+            if level == &last_level {
+                return false;
+            }
+            if direction == Direction::Decreasing && level > &last_level {
+                return false;
+            }
+
+            last_level = level.clone();
+        }
+        true
+    }
+
+    pub fn validate_adjacency_difference(report: Report) -> bool {
+        for (index, level) in report[1..report.len() - 1].iter().enumerate() {
+            let backwards_difference = (level - report[index - 1]).abs();
+            let forwards_difference = (level - report[index + 1]).abs();
+
+            if backwards_difference > 3 {
+                return false;
+            }
+            if forwards_difference > 3 {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn validate_report(report: Report) -> bool {
+        if validate_increasing_or_decreasing(report.clone())
+            && validate_adjacency_difference(report)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use crate::test_init;
+
+        use super::*;
+
+        #[test]
+        fn test_input_parsing() {
+            test_init();
+            assert_eq!(
+                parse_file(Utf8PathBuf::from("./src/puzzle_inputs/day_2_sample.txt")),
+                vec![
+                    vec![7, 6, 4, 2, 1],
+                    vec![1, 2, 7, 8, 9],
+                    vec![9, 7, 6, 2, 1],
+                    vec![1, 3, 2, 4, 5],
+                    vec![8, 6, 4, 4, 1],
+                    vec![1, 3, 6, 7, 9]
+                ]
+            )
+        }
+
+        #[test]
+        fn test_increasing_report_true() {
+            test_init();
+            assert!(validate_increasing_or_decreasing(vec![1, 2, 7, 8, 9]))
+        }
+
+        #[test]
+        fn test_increasing_report_false() {
+            test_init();
+            assert_eq!(
+                false,
+                validate_increasing_or_decreasing(vec![1, 3, 2, 4, 5])
+            )
+        }
+
+        #[test]
+        fn test_decreasing_report_true() {
+            test_init();
+            assert!(validate_increasing_or_decreasing(vec![7, 6, 4, 2, 1]))
+        }
+
+        #[test]
+        fn test_decreasing_report_false() {
+            test_init();
+            assert_eq!(
+                false,
+                validate_increasing_or_decreasing(vec![7, 6, 4, 2, 3])
+            )
+        }
+
+        #[test]
+        fn test_increasing_or_decreasing_stable() {
+            test_init();
+            assert_eq!(
+                false,
+                validate_increasing_or_decreasing(vec![8, 6, 4, 4, 1],)
+            )
+        }
+
+        #[test]
+        fn test_adjacency_levels_true() {
+            test_init();
+            assert!(validate_adjacency_difference(vec![1, 3, 6, 7, 9]))
         }
     }
 }
