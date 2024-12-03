@@ -325,44 +325,66 @@ mod day_2 {
     }
 
     pub fn validate_increasing_or_decreasing(report: Report) -> bool {
+        info!("Validating Increasing or Decreasing Levels in Report");
+        debug!("Report {:?}", report);
         let mut direction = Direction::NotSet;
         let mut last_level = report[0];
         for level in &report[1..] {
             if direction == Direction::NotSet {
                 if &last_level < level {
                     direction = Direction::Increasing;
+                    debug!("Report Determined to be increasing");
                 } else if &last_level > level {
                     direction = Direction::Decreasing;
+                    debug!("Report Determined to be decreasing");
                 }
             }
 
             if direction == Direction::Increasing && level < &last_level {
+                info!("Report failed validation - report not consistently increasing");
                 return false;
             }
             if level == &last_level {
+                info!("Report failed validation - report level did not change between levels");
                 return false;
             }
             if direction == Direction::Decreasing && level > &last_level {
+                info!("Report failed validation - report not consistently decreasing");
                 return false;
             }
 
             last_level = level.clone();
         }
+        info!("Reported validated true");
         true
     }
 
     pub fn validate_adjacency_difference(report: Report) -> bool {
-        for (index, level) in report[1..report.len() - 1].iter().enumerate() {
+        info!("Validating Adjacency rules in report");
+        debug!("Report {:?}", report);
+        for (slice_index, level) in report[1..report.len() - 1].iter().enumerate() {
+            let index = slice_index + 1;
             let backwards_difference = (level - report[index - 1]).abs();
             let forwards_difference = (level - report[index + 1]).abs();
 
+            debug!(
+                "Levels - {} {} {}; backwards_difference: {}, forwards_difference: {}",
+                report[index - 1],
+                level,
+                report[index + 1],
+                backwards_difference,
+                forwards_difference
+            );
             if backwards_difference > 3 {
+                info!("Report failed validation - levels exceeded difference");
                 return false;
             }
             if forwards_difference > 3 {
+                info!("Report failed validation - levels exceeded difference");
                 return false;
             }
         }
+        info!("Report validated true");
         true
     }
 
@@ -398,48 +420,53 @@ mod day_2 {
         }
 
         #[test]
-        fn test_increasing_report_true() {
+        fn test_decreasing_report_success() {
             test_init();
-            assert!(validate_increasing_or_decreasing(vec![1, 2, 7, 8, 9]))
+            assert!(validate_report(vec![7, 6, 4, 2, 1]))
         }
 
         #[test]
-        fn test_increasing_report_false() {
+        fn test_large_level_increase_failure() {
             test_init();
-            assert_eq!(
-                false,
-                validate_increasing_or_decreasing(vec![1, 3, 2, 4, 5])
-            )
+            assert_eq!(false, validate_report(vec![1, 2, 7, 8, 9]))
         }
 
         #[test]
-        fn test_decreasing_report_true() {
+        fn test_large_level_decrease_failure() {
             test_init();
-            assert!(validate_increasing_or_decreasing(vec![7, 6, 4, 2, 1]))
+            assert_eq!(false, validate_report(vec![9, 7, 6, 2, 1]))
         }
 
+        #[test]
+        fn test_direction_switch_failure() {
+            test_init();
+            assert_eq!(false, validate_report(vec![1, 3, 2, 4, 5]))
+        }
+
+        #[test]
+        fn test_levels_stable_failure() {
+            test_init();
+            assert_eq!(false, validate_report(vec![8, 6, 4, 4, 1],))
+        }
+
+        #[test]
+        fn test_increasing_report_success() {
+            test_init();
+            assert!(validate_report(vec![1, 3, 6, 7, 9]))
+        }
+
+        // Not mentioned in AoC, but I'm testing anyways
         #[test]
         fn test_decreasing_report_false() {
             test_init();
-            assert_eq!(
-                false,
-                validate_increasing_or_decreasing(vec![7, 6, 4, 2, 3])
-            )
+            assert_eq!(false, validate_report(vec![7, 6, 4, 2, 3]))
         }
 
-        #[test]
-        fn test_increasing_or_decreasing_stable() {
-            test_init();
-            assert_eq!(
-                false,
-                validate_increasing_or_decreasing(vec![8, 6, 4, 4, 1],)
-            )
-        }
-
+        // Not mentioned in AoC, but I'm testing anyways
         #[test]
         fn test_adjacency_levels_true() {
             test_init();
-            assert!(validate_adjacency_difference(vec![1, 3, 6, 7, 9]))
+            assert!(validate_report(vec![1, 3, 6, 7, 9]))
         }
     }
 }
