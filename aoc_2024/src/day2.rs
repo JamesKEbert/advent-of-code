@@ -1,0 +1,214 @@
+use camino::Utf8PathBuf;
+use clap::Subcommand;
+
+use crate::read_file;
+
+#[derive(Subcommand, Debug)]
+pub enum Day2Commands {
+    /// Counts total number of safe reports
+    Count {
+        #[arg(short, long)]
+        path: Utf8PathBuf,
+    },
+}
+
+pub fn day2_cli_command_processing(command: &Day2Commands) {
+    match command {
+        Day2Commands::Count { path } => {
+            info!("Command received to count number of safe reports");
+            println!("Total Safe Reports: {}", count_safe_reports(path.clone()));
+        }
+    }
+}
+
+type Report = Vec<Level>;
+type Level = i32;
+
+pub fn parse_file(file_path: Utf8PathBuf) -> Vec<Report> {
+    info!("Parsing File");
+    let content = read_file(file_path);
+    let reports_string = content.split("\n");
+
+    let mut reports: Vec<Report> = vec![];
+    for report_string in reports_string {
+        let levels_string = report_string.split(" ");
+        let levels: Vec<Level> = levels_string
+            .map(|level| level.parse::<i32>().expect("To be a valid number"))
+            .collect();
+        reports.append(&mut vec![levels]);
+    }
+    reports
+}
+
+#[derive(PartialEq)]
+enum Direction {
+    Decreasing,
+    Increasing,
+    NotSet,
+}
+
+pub fn validate_increasing_or_decreasing(report: Report) -> bool {
+    info!("Validating Increasing or Decreasing Levels in Report");
+    debug!("Report {:?}", report);
+    let mut direction = Direction::NotSet;
+    let mut last_level = report[0];
+    for level in &report[1..] {
+        if direction == Direction::NotSet {
+            if &last_level < level {
+                direction = Direction::Increasing;
+                debug!("Report Determined to be increasing");
+            } else if &last_level > level {
+                direction = Direction::Decreasing;
+                debug!("Report Determined to be decreasing");
+            }
+        }
+
+        if direction == Direction::Increasing && level < &last_level {
+            info!("Report failed validation - report not consistently increasing");
+            return false;
+        }
+        if level == &last_level {
+            info!("Report failed validation - report level did not change between levels");
+            return false;
+        }
+        if direction == Direction::Decreasing && level > &last_level {
+            info!("Report failed validation - report not consistently decreasing");
+            return false;
+        }
+
+        last_level = level.clone();
+    }
+    info!("Reported validated true");
+    true
+}
+
+pub fn validate_adjacency_difference(report: Report) -> bool {
+    info!("Validating Adjacency rules in report");
+    debug!("Report {:?}", report);
+    for (slice_index, level) in report[1..report.len() - 1].iter().enumerate() {
+        let index = slice_index + 1;
+        let backwards_difference = (level - report[index - 1]).abs();
+        let forwards_difference = (level - report[index + 1]).abs();
+
+        debug!(
+            "Levels - {} {} {}; backwards_difference: {}, forwards_difference: {}",
+            report[index - 1],
+            level,
+            report[index + 1],
+            backwards_difference,
+            forwards_difference
+        );
+        if backwards_difference > 3 {
+            info!("Report failed validation - levels exceeded difference");
+            return false;
+        }
+        if forwards_difference > 3 {
+            info!("Report failed validation - levels exceeded difference");
+            return false;
+        }
+    }
+    info!("Report validated true");
+    true
+}
+
+pub fn validate_report(report: Report) -> bool {
+    if validate_increasing_or_decreasing(report.clone()) && validate_adjacency_difference(report) {
+        return true;
+    }
+    return false;
+}
+
+pub fn count_safe_reports(file_path: Utf8PathBuf) -> i32 {
+    let reports: Vec<Report> = parse_file(file_path);
+    let mut count = 0;
+
+    for report in reports {
+        if validate_report(report) {
+            count += 1;
+        }
+    }
+
+    count
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_init;
+
+    use super::*;
+
+    #[test]
+    fn test_input_parsing() {
+        test_init();
+        assert_eq!(
+            parse_file(Utf8PathBuf::from("./src/puzzle_inputs/day2_sample.txt")),
+            vec![
+                vec![7, 6, 4, 2, 1],
+                vec![1, 2, 7, 8, 9],
+                vec![9, 7, 6, 2, 1],
+                vec![1, 3, 2, 4, 5],
+                vec![8, 6, 4, 4, 1],
+                vec![1, 3, 6, 7, 9]
+            ]
+        )
+    }
+
+    #[test]
+    fn test_decreasing_report_success() {
+        test_init();
+        assert!(validate_report(vec![7, 6, 4, 2, 1]))
+    }
+
+    #[test]
+    fn test_large_level_increase_failure() {
+        test_init();
+        assert_eq!(false, validate_report(vec![1, 2, 7, 8, 9]))
+    }
+
+    #[test]
+    fn test_large_level_decrease_failure() {
+        test_init();
+        assert_eq!(false, validate_report(vec![9, 7, 6, 2, 1]))
+    }
+
+    #[test]
+    fn test_direction_switch_failure() {
+        test_init();
+        assert_eq!(false, validate_report(vec![1, 3, 2, 4, 5]))
+    }
+
+    #[test]
+    fn test_levels_stable_failure() {
+        test_init();
+        assert_eq!(false, validate_report(vec![8, 6, 4, 4, 1],))
+    }
+
+    #[test]
+    fn test_increasing_report_success() {
+        test_init();
+        assert!(validate_report(vec![1, 3, 6, 7, 9]))
+    }
+
+    // Not mentioned in AoC, but I'm testing anyways
+    #[test]
+    fn test_decreasing_report_false() {
+        test_init();
+        assert_eq!(false, validate_report(vec![7, 6, 4, 2, 3]))
+    }
+
+    // Not mentioned in AoC, but I'm testing anyways
+    #[test]
+    fn test_adjacency_levels_true() {
+        test_init();
+        assert!(validate_report(vec![1, 3, 6, 7, 9]))
+    }
+
+    #[test]
+    fn test_sample_count() {
+        test_init();
+        assert_eq!(
+            2,
+            count_safe_reports(Utf8PathBuf::from("./src/puzzle_inputs/day2_sample.txt"))
+        )
+    }
+}
