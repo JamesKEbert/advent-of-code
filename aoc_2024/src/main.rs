@@ -3,11 +3,25 @@ use std::{fs, io};
 #[macro_use]
 extern crate log;
 
-fn main() {
-    println!("Hello, world!");
+use camino::Utf8PathBuf;
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    path: Option<Utf8PathBuf>,
+
+    /// Test all AoC days' functions, including against sample data
+    #[arg(long)]
+    test: bool,
 }
 
-pub fn read_file(file_path: &str) -> Result<String, io::Error> {
+fn main() {
+    let args = Args::parse();
+}
+
+pub fn read_file(file_path: Utf8PathBuf) -> Result<String, io::Error> {
     info!("Reading File...");
     let contents = fs::read_to_string(file_path)?;
     info!("Read File!");
@@ -15,6 +29,7 @@ pub fn read_file(file_path: &str) -> Result<String, io::Error> {
     Ok(contents)
 }
 
+#[cfg(test)]
 fn test_init() {
     env_logger::builder().is_test(true).try_init().ok();
 }
@@ -22,9 +37,11 @@ fn test_init() {
 pub mod day_1 {
     use std::collections::HashMap;
 
+    use camino::Utf8PathBuf;
+
     use crate::read_file;
 
-    fn parse_day_1_file(file_path: &str) -> (Vec<i32>, Vec<i32>) {
+    fn parse_day_1_file(file_path: Utf8PathBuf) -> (Vec<i32>, Vec<i32>) {
         info!("Parsing File");
         let content = read_file(file_path).expect("Content to be read");
 
@@ -116,7 +133,7 @@ pub mod day_1 {
         count_map
     }
 
-    pub fn calculate_distance(file_path: &str) -> i32 {
+    pub fn calculate_distance(file_path: Utf8PathBuf) -> i32 {
         info!("Beginning to calculate distance");
 
         let (left_list, right_list) = parse_day_1_file(file_path);
@@ -139,7 +156,7 @@ pub mod day_1 {
         distance
     }
 
-    pub fn calculate_score(file_path: &str) -> i32 {
+    pub fn calculate_score(file_path: Utf8PathBuf) -> i32 {
         info!("Beginning to calculate score");
 
         let (left_list, right_list) = parse_day_1_file(file_path);
@@ -165,6 +182,8 @@ pub mod day_1 {
 
     #[cfg(test)]
     mod tests {
+        use camino::Utf8PathBuf;
+
         use crate::test_init;
 
         use super::*;
@@ -173,7 +192,7 @@ pub mod day_1 {
         fn test_read_file() {
             test_init();
             assert_eq!(
-                parse_day_1_file("./src/puzzle_inputs/day_1_sample.txt"),
+                parse_day_1_file(Utf8PathBuf::from("./src/puzzle_inputs/day_1_sample.txt")),
                 (vec![3, 4, 2, 1, 3, 3], vec![4, 3, 5, 3, 9, 3])
             );
         }
@@ -217,14 +236,15 @@ pub mod day_1 {
         #[test]
         fn example_input() {
             test_init();
-            let total_distance = calculate_distance("./src/puzzle_inputs/day_1_sample.txt");
+            let total_distance =
+                calculate_distance(Utf8PathBuf::from("./src/puzzle_inputs/day_1_sample.txt"));
             assert_eq!(total_distance, 11);
         }
 
         #[test]
         fn example_similarity_score() {
             test_init();
-            let score = calculate_score("./src/puzzle_inputs/day_1_sample.txt");
+            let score = calculate_score(Utf8PathBuf::from("./src/puzzle_inputs/day_1_sample.txt"));
             assert_eq!(score, 31);
         }
     }

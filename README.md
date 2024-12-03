@@ -1,2 +1,3 @@
 # advent-of-code
-My (laughable?) attempt at Advent of Codes
+
+My (laughable?) attempts at Advent of Code 🎄
