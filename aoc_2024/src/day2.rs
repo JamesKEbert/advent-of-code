@@ -7,16 +7,23 @@ use crate::read_file;
 pub enum Day2Commands {
     /// Counts total number of safe reports
     Count {
+        /// Input File Path
         #[arg(short, long)]
         path: Utf8PathBuf,
+        /// Whether to use the dampener
+        #[arg(long, default_value_t = false)]
+        dampener: bool,
     },
 }
 
 pub fn day2_cli_command_processing(command: &Day2Commands) {
     match command {
-        Day2Commands::Count { path } => {
+        Day2Commands::Count { path, dampener } => {
             info!("Command received to count number of safe reports");
-            println!("Total Safe Reports: {}", count_safe_reports(path.clone()));
+            println!(
+                "Total Safe Reports: {}",
+                count_safe_reports(path.clone(), dampener.clone())
+            );
         }
     }
 }
@@ -111,19 +118,35 @@ pub fn validate_adjacency_difference(report: Report) -> bool {
     true
 }
 
-pub fn validate_report(report: Report) -> bool {
-    if validate_increasing_or_decreasing(report.clone()) && validate_adjacency_difference(report) {
+pub fn validate_report(report: Report, dampener: bool) -> bool {
+    if validate_increasing_or_decreasing(report.clone())
+        && validate_adjacency_difference(report.clone())
+    {
         return true;
+    }
+
+    if dampener == true {
+        info!("Dampener Set, attempting to remove levels to achieve successful report");
+
+        for (index, level) in report.iter().enumerate() {
+            let mut altered_report = report.clone();
+            altered_report.remove(index);
+            if validate_increasing_or_decreasing(altered_report.clone())
+                && validate_adjacency_difference(altered_report)
+            {
+                return true;
+            }
+        }
     }
     return false;
 }
 
-pub fn count_safe_reports(file_path: Utf8PathBuf) -> i32 {
+pub fn count_safe_reports(file_path: Utf8PathBuf, dampener: bool) -> i32 {
     let reports: Vec<Report> = parse_file(file_path);
     let mut count = 0;
 
     for report in reports {
-        if validate_report(report) {
+        if validate_report(report, dampener) {
             count += 1;
         }
     }
@@ -156,51 +179,51 @@ mod tests {
     #[test]
     fn test_decreasing_report_success() {
         test_init();
-        assert!(validate_report(vec![7, 6, 4, 2, 1]))
+        assert!(validate_report(vec![7, 6, 4, 2, 1], false))
     }
 
     #[test]
     fn test_large_level_increase_failure() {
         test_init();
-        assert_eq!(false, validate_report(vec![1, 2, 7, 8, 9]))
+        assert_eq!(false, validate_report(vec![1, 2, 7, 8, 9], false))
     }
 
     #[test]
     fn test_large_level_decrease_failure() {
         test_init();
-        assert_eq!(false, validate_report(vec![9, 7, 6, 2, 1]))
+        assert_eq!(false, validate_report(vec![9, 7, 6, 2, 1], false))
     }
 
     #[test]
     fn test_direction_switch_failure() {
         test_init();
-        assert_eq!(false, validate_report(vec![1, 3, 2, 4, 5]))
+        assert_eq!(false, validate_report(vec![1, 3, 2, 4, 5], false))
     }
 
     #[test]
     fn test_levels_stable_failure() {
         test_init();
-        assert_eq!(false, validate_report(vec![8, 6, 4, 4, 1],))
+        assert_eq!(false, validate_report(vec![8, 6, 4, 4, 1], false))
     }
 
     #[test]
     fn test_increasing_report_success() {
         test_init();
-        assert!(validate_report(vec![1, 3, 6, 7, 9]))
+        assert!(validate_report(vec![1, 3, 6, 7, 9], false))
     }
 
     // Not mentioned in AoC, but I'm testing anyways
     #[test]
     fn test_decreasing_report_false() {
         test_init();
-        assert_eq!(false, validate_report(vec![7, 6, 4, 2, 3]))
+        assert_eq!(false, validate_report(vec![7, 6, 4, 2, 3], false))
     }
 
     // Not mentioned in AoC, but I'm testing anyways
     #[test]
     fn test_adjacency_levels_true() {
         test_init();
-        assert!(validate_report(vec![1, 3, 6, 7, 9]))
+        assert!(validate_report(vec![1, 3, 6, 7, 9], false))
     }
 
     #[test]
@@ -208,7 +231,58 @@ mod tests {
         test_init();
         assert_eq!(
             2,
-            count_safe_reports(Utf8PathBuf::from("./src/puzzle_inputs/day2_sample.txt"))
+            count_safe_reports(
+                Utf8PathBuf::from("./src/puzzle_inputs/day2_sample.txt"),
+                false
+            )
+        )
+    }
+
+    #[test]
+    fn test_dampener_decreasing_report_success() {
+        test_init();
+        assert!(validate_report(vec![7, 6, 4, 2, 1], true))
+    }
+
+    #[test]
+    fn test_dampener_large_level_increase_failure() {
+        test_init();
+        assert_eq!(false, validate_report(vec![1, 2, 7, 8, 9], true))
+    }
+
+    #[test]
+    fn test_dampener_large_level_decrease_failure() {
+        test_init();
+        assert_eq!(false, validate_report(vec![9, 7, 6, 2, 1], true))
+    }
+
+    #[test]
+    fn test_dampener_direction_switch_success() {
+        test_init();
+        assert!(validate_report(vec![1, 3, 2, 4, 5], true))
+    }
+
+    #[test]
+    fn test_dampener_levels_stable_success() {
+        test_init();
+        assert!(validate_report(vec![8, 6, 4, 4, 1], true))
+    }
+
+    #[test]
+    fn test_dampener_increasing_report_success() {
+        test_init();
+        assert!(validate_report(vec![1, 3, 6, 7, 9], true))
+    }
+
+    #[test]
+    fn test_sample_count_dampener() {
+        test_init();
+        assert_eq!(
+            4,
+            count_safe_reports(
+                Utf8PathBuf::from("./src/puzzle_inputs/day2_sample.txt"),
+                true
+            )
         )
     }
 }

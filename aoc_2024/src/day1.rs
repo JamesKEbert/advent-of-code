@@ -8,11 +8,13 @@ use crate::read_file;
 pub enum Day1Commands {
     /// Calculate the Total Distance from the two lists
     TotalDistance {
+        /// Input File Path
         #[arg(short, long)]
         path: Utf8PathBuf,
     },
     /// Calculate the Similarity Score from two lists
     Score {
+        /// Input File Path
         #[arg(short, long)]
         path: Utf8PathBuf,
     },
