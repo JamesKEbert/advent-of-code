@@ -6,6 +6,7 @@ extern crate log;
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand};
 use day_1::{calculate_distance, calculate_score};
+use day_2::count_safe_reports;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -25,10 +26,15 @@ enum Commands {
         #[command(subcommand)]
         command: Day1Commands,
     },
+    /// Run Day2 methods against input files
+    Day2 {
+        #[command(subcommand)]
+        command: Day2Commands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
-enum Day1Commands {
+pub enum Day1Commands {
     /// Calculate the Total Distance from the two lists
     TotalDistance {
         #[arg(short, long)]
@@ -36,6 +42,15 @@ enum Day1Commands {
     },
     /// Calculate the Similarity Score from two lists
     Score {
+        #[arg(short, long)]
+        path: Utf8PathBuf,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum Day2Commands {
+    /// Counts total number of safe reports
+    Count {
         #[arg(short, long)]
         path: Utf8PathBuf,
     },
@@ -49,16 +64,30 @@ fn main() {
     builder.init();
 
     match &cli.command {
-        Commands::Day1 { command } => match command {
-            Day1Commands::TotalDistance { path } => {
-                info!("Command received to calculate Total Distance");
-                println!("Total Distance: {}", calculate_distance(path.clone()));
-            }
-            Day1Commands::Score { path } => {
-                info!("Command received to calculate Similarity Score");
-                println!("Total Similarity Score: {}", calculate_score(path.clone()));
-            }
-        },
+        Commands::Day1 { command } => day_1_cli_command_processing(command),
+        Commands::Day2 { command } => day_2_cli_command_processing(command),
+    }
+}
+
+pub fn day_1_cli_command_processing(command: &Day1Commands) {
+    match command {
+        Day1Commands::TotalDistance { path } => {
+            info!("Command received to calculate Total Distance");
+            println!("Total Distance: {}", calculate_distance(path.clone()));
+        }
+        Day1Commands::Score { path } => {
+            info!("Command received to calculate Similarity Score");
+            println!("Total Similarity Score: {}", calculate_score(path.clone()));
+        }
+    }
+}
+
+pub fn day_2_cli_command_processing(command: &Day2Commands) {
+    match command {
+        Day2Commands::Count { path } => {
+            info!("Command received to count number of safe reports");
+            println!("Total Safe Reports: {}", count_safe_reports(path.clone()));
+        }
     }
 }
 
