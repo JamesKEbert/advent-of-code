@@ -11,6 +11,12 @@ pub enum Day4Commands {
         #[arg(short, long)]
         path: Utf8PathBuf,
     },
+    /// Searches Puzzle for X-MAS SAMMAS X
+    SearchXMas {
+        /// Input File Path
+        #[arg(short, long)]
+        path: Utf8PathBuf,
+    },
 }
 
 pub fn day4_cli_command_processing(command: &Day4Commands) {
@@ -18,6 +24,10 @@ pub fn day4_cli_command_processing(command: &Day4Commands) {
         Day4Commands::SearchPuzzle { path } => {
             info!("Command received to search puzzle");
             println!("Total XMAS/SAMX: {}", search_puzzle(path.clone()));
+        }
+        Day4Commands::SearchXMas { path } => {
+            info!("Command received to search puzzle for X-MAS");
+            println!("Total X-MAS: {}", search_puzzle_for_x_mas(path.clone()));
         }
     }
 }
@@ -171,6 +181,44 @@ fn search_puzzle(file_path: Utf8PathBuf) -> i32 {
     count
 }
 
+// I anticipate this function to be a nightmare, yay
+fn search_for_mas(puzzle: Puzzle) -> i32 {
+    let mut count = 0;
+
+    for (puzzle_index, line) in puzzle.iter().enumerate() {
+        for (line_index, char) in line.iter().enumerate() {
+            if char == &'A' {
+                if line_index as i32 - 1 >= 0
+                    && puzzle_index as i32 - 1 >= 0
+                    && line_index + 1 < line.len()
+                    && puzzle_index + 1 < puzzle.len()
+                {
+                    let top_left = puzzle[puzzle_index - 1][line_index - 1];
+                    let top_right = puzzle[puzzle_index - 1][line_index + 1];
+                    let bottom_left = puzzle[puzzle_index + 1][line_index - 1];
+                    let bottom_right = puzzle[puzzle_index + 1][line_index + 1];
+                    if (top_left == 'M' && bottom_right == 'S'
+                        || top_left == 'S' && bottom_right == 'M')
+                        && (top_right == 'M' && bottom_left == 'S'
+                            || top_right == 'S' && bottom_left == 'M')
+                    {
+                        info!("Valid X-MAS SAMMAS X");
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+    count
+}
+
+fn search_puzzle_for_x_mas(file_path: Utf8PathBuf) -> i32 {
+    let mut count = 0;
+    let puzzle: Puzzle = parse_file(file_path);
+    count += search_for_mas(puzzle);
+    count
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,6 +282,21 @@ mod tests {
         assert_eq!(
             18,
             search_puzzle(Utf8PathBuf::from("./src/puzzle_inputs/day4_sample.txt"))
+        )
+    }
+
+    #[test]
+    fn test_mas_search() {
+        test_init();
+        assert_eq!(9, search_for_mas(sample_puzzle_vectors()))
+    }
+
+    #[test]
+    fn test_puzzle_search_x_mas_sample() {
+        test_init();
+        assert_eq!(
+            9,
+            search_puzzle_for_x_mas(Utf8PathBuf::from("./src/puzzle_inputs/day4_sample.txt"))
         )
     }
 }
