@@ -31,7 +31,7 @@ pub fn day2_cli_command_processing(command: &Day2Commands) {
 type Report = Vec<Level>;
 type Level = i32;
 
-pub fn parse_file(file_path: Utf8PathBuf) -> Vec<Report> {
+fn parse_file(file_path: Utf8PathBuf) -> Vec<Report> {
     info!("Parsing File");
     let content = read_file(file_path);
     let reports_string = content.split("\n");
@@ -54,7 +54,7 @@ enum Direction {
     NotSet,
 }
 
-pub fn validate_increasing_or_decreasing(report: Report) -> bool {
+fn validate_increasing_or_decreasing(report: Report) -> bool {
     info!("Validating Increasing or Decreasing Levels in Report");
     debug!("Report {:?}", report);
     let mut direction = Direction::NotSet;
@@ -89,7 +89,7 @@ pub fn validate_increasing_or_decreasing(report: Report) -> bool {
     true
 }
 
-pub fn validate_adjacency_difference(report: Report) -> bool {
+fn validate_adjacency_difference(report: Report) -> bool {
     info!("Validating Adjacency rules in report");
     debug!("Report {:?}", report);
     for (slice_index, level) in report[1..report.len() - 1].iter().enumerate() {
@@ -118,7 +118,7 @@ pub fn validate_adjacency_difference(report: Report) -> bool {
     true
 }
 
-pub fn validate_report(report: Report, dampener: bool) -> bool {
+fn validate_report(report: Report, dampener: bool) -> bool {
     if validate_increasing_or_decreasing(report.clone())
         && validate_adjacency_difference(report.clone())
     {
@@ -128,7 +128,7 @@ pub fn validate_report(report: Report, dampener: bool) -> bool {
     if dampener == true {
         info!("Dampener Set, attempting to remove levels to achieve successful report");
 
-        for (index, level) in report.iter().enumerate() {
+        for (index, _level) in report.iter().enumerate() {
             let mut altered_report = report.clone();
             altered_report.remove(index);
             if validate_increasing_or_decreasing(altered_report.clone())
@@ -141,7 +141,7 @@ pub fn validate_report(report: Report, dampener: bool) -> bool {
     return false;
 }
 
-pub fn count_safe_reports(file_path: Utf8PathBuf, dampener: bool) -> i32 {
+fn count_safe_reports(file_path: Utf8PathBuf, dampener: bool) -> i32 {
     let reports: Vec<Report> = parse_file(file_path);
     let mut count = 0;
 

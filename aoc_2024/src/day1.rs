@@ -57,7 +57,7 @@ fn parse_day1_file(file_path: Utf8PathBuf) -> (Vec<i32>, Vec<i32>) {
     (left_list, right_list)
 }
 
-pub fn sort_list(short_first: bool, list: &mut Vec<i32>) -> Vec<i32> {
+fn sort_list(short_first: bool, list: &mut Vec<i32>) -> Vec<i32> {
     info!("Sorting List...");
 
     // Suboptimal how with loop?
@@ -98,7 +98,7 @@ pub fn sort_list(short_first: bool, list: &mut Vec<i32>) -> Vec<i32> {
     list.clone()
 }
 
-pub fn tupilize(left_list: Vec<i32>, right_list: Vec<i32>) -> Vec<(i32, i32)> {
+fn tupilize(left_list: Vec<i32>, right_list: Vec<i32>) -> Vec<(i32, i32)> {
     info!("Tupalizing Lists");
     debug!("Left List  '{:?}'", left_list);
     debug!("Right List '{:?}'", right_list);
@@ -111,7 +111,7 @@ pub fn tupilize(left_list: Vec<i32>, right_list: Vec<i32>) -> Vec<(i32, i32)> {
     list
 }
 
-pub fn count_similarities(list: &mut Vec<i32>) -> HashMap<i32, i32> {
+fn count_similarities(list: &mut Vec<i32>) -> HashMap<i32, i32> {
     info!("Counting similarities in List");
     let mut count_map: HashMap<i32, i32> = HashMap::new();
 
@@ -126,7 +126,7 @@ pub fn count_similarities(list: &mut Vec<i32>) -> HashMap<i32, i32> {
     count_map
 }
 
-pub fn calculate_distance(file_path: Utf8PathBuf) -> i32 {
+fn calculate_distance(file_path: Utf8PathBuf) -> i32 {
     info!("Beginning to calculate distance");
 
     let (left_list, right_list) = parse_day1_file(file_path);
@@ -149,7 +149,7 @@ pub fn calculate_distance(file_path: Utf8PathBuf) -> i32 {
     distance
 }
 
-pub fn calculate_score(file_path: Utf8PathBuf) -> i32 {
+fn calculate_score(file_path: Utf8PathBuf) -> i32 {
     info!("Beginning to calculate score");
 
     let (left_list, right_list) = parse_day1_file(file_path);

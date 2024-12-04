@@ -7,9 +7,11 @@ use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand};
 use day1::{day1_cli_command_processing, Day1Commands};
 use day2::{day2_cli_command_processing, Day2Commands};
+use day3::{day3_cli_command_processing, Day3Commands};
 
 pub mod day1;
 pub mod day2;
+pub mod day3;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -34,6 +36,11 @@ enum Commands {
         #[command(subcommand)]
         command: Day2Commands,
     },
+    /// Run Day3 methods against input files
+    Day3 {
+        #[command(subcommand)]
+        command: Day3Commands,
+    },
 }
 
 fn main() {
@@ -46,6 +53,7 @@ fn main() {
     match &cli.command {
         Commands::Day1 { command } => day1_cli_command_processing(command),
         Commands::Day2 { command } => day2_cli_command_processing(command),
+        Commands::Day3 { command } => day3_cli_command_processing(command),
     }
 }
 
