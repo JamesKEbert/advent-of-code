@@ -8,6 +8,7 @@ use clap::{Parser, Subcommand};
 use day1::{day1_cli_command_processing, Day1Commands};
 use day2::{day2_cli_command_processing, Day2Commands};
 use day3::{day3_cli_command_processing, Day3Commands};
+use day4::{day4_cli_command_processing, Day4Commands};
 
 pub mod day1;
 pub mod day2;
@@ -42,6 +43,11 @@ enum Commands {
         #[command(subcommand)]
         command: Day3Commands,
     },
+    /// Run Day4 methods against input files
+    Day4 {
+        #[command(subcommand)]
+        command: Day4Commands,
+    },
 }
 
 fn main() {
@@ -55,6 +61,7 @@ fn main() {
         Commands::Day1 { command } => day1_cli_command_processing(command),
         Commands::Day2 { command } => day2_cli_command_processing(command),
         Commands::Day3 { command } => day3_cli_command_processing(command),
+        Commands::Day4 { command } => day4_cli_command_processing(command),
     }
 }
 
