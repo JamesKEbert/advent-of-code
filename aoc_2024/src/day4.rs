@@ -182,6 +182,7 @@ fn search_puzzle(file_path: Utf8PathBuf) -> i32 {
 }
 
 // I anticipate this function to be a nightmare, yay
+// Future me: you were actually wrong lol
 fn search_for_mas(puzzle: Puzzle) -> i32 {
     let mut count = 0;
 
