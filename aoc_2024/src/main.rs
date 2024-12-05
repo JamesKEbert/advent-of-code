@@ -25,7 +25,7 @@ struct Cli {
 
     /// Specify level of logs emitted
     #[arg(long, default_value_t = log::LevelFilter::Info)]
-    loglevel: log::LevelFilter,
+    log_level: log::LevelFilter,
 }
 
 #[derive(Subcommand, Debug)]
@@ -61,7 +61,7 @@ fn main() {
     let cli = Cli::parse();
 
     let mut builder = colog::default_builder();
-    builder.filter(None, cli.loglevel);
+    builder.filter(None, cli.log_level);
     builder.init();
 
     match &cli.command {
