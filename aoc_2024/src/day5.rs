@@ -107,6 +107,10 @@ fn calculate_middle_page_total(file_path: Utf8PathBuf, invalid_updates: bool) ->
             if invalid_updates {
                 info!("Update is not valid, reordering update according to rules");
                 let ordered_update = order_incorrect_update(&update, &rules);
+                debug!(
+                    "Valid order: {}",
+                    validate_update_order(&ordered_update, &rules)
+                );
                 let middle_page_num = ordered_update[(ordered_update.len() - 1) / 2];
                 info!("Adding Middle page number to count {}", middle_page_num);
                 count += middle_page_num;
@@ -115,37 +119,97 @@ fn calculate_middle_page_total(file_path: Utf8PathBuf, invalid_updates: bool) ->
     }
     count
 }
-
 type RuleList = Vec<i32>;
-fn compute_rule_order(rules: &Vec<Rule>) -> RuleList {
+fn compute_rule_order(rules: &mut Vec<Rule>, relevant_rules: &Vec<i32>) -> RuleList {
     info!("Computing Correct Rule Order");
-    debug!("Rules: {:?}", rules);
+    debug!("Rules: {:?}, relevant_rules: {:?}", rules, relevant_rules);
 
-    let mut rule_counts: HashMap<i32, usize> = HashMap::new();
-    for rule in rules {
-        debug!("Rule '{}'", rule[0]);
-        let mut count_option = rule_counts.get(&rule[0]);
-        let mut count = count_option.get_or_insert(&0).to_owned();
-        debug!("Count_Option {:?}, count {}", count_option, count);
-        count += 1;
-        rule_counts.insert(rule[0], count);
+    rules.retain(|rule_pair| {
+        if relevant_rules.contains(&rule_pair[0]) && relevant_rules.contains(&rule_pair[1]) {
+            return true;
+        } else {
+            return false;
+        }
+    });
+    debug!("Rules: {:?}, relevant_rules: {:?}", rules, relevant_rules);
+
+    let mut rule_map: HashMap<i32, Vec<i32>> = HashMap::new();
+    for rule_pair in rules.clone() {
+        debug!("Rule '{}'", rule_pair[0]);
+        let mut rule_option = rule_map.get(&rule_pair[0]);
+        let empty_rule_vec: Vec<i32> = vec![];
+        let mut rule = rule_option.get_or_insert(&empty_rule_vec).to_owned();
+        debug!("Rule_Option {:?}, rule {:?}", rule_option, rule);
+        if !rule.contains(&rule_pair[1]) {
+            rule.push(rule_pair[1]);
+        }
+        rule_map.insert(rule_pair[0], rule);
     }
 
     // Find the singular rule that is not left
     for rule in rules {
-        if !rule_counts.contains_key(&rule[1]) {
-            rule_counts.insert(rule[1], 0);
+        if !rule_map.contains_key(&rule[1]) {
+            rule_map.insert(rule[1], vec![]);
             break;
         }
     }
 
-    info!("rule counts: '{:?}'", rule_counts);
-    let mut sorted_rules = vec![0; rule_counts.len()];
-    for (rule, count) in rule_counts {
-        debug!("Rule '{}', count '{}'", rule, count);
-        sorted_rules[count] = rule;
+    // fn something() {
+    //     let mut map = HashMap::new();
+    //     map.insert(47, vec![53, 13, 61, 29]);
+    //     map.insert(97, vec![13, 61, 47, 29, 53, 75]);
+    //     map.insert(75, vec![29, 53, 47, 61, 13]);
+    //     map.insert(61, vec![13, 53, 29]);
+    //     map.insert(29, vec![13]);
+    //     map.insert(53, vec![29, 13]);
+    //     map
+    // }
+    // 97, 75, 47,
+    // 97, 75, 47, 61, 53, 29, 13
+
+    // 57, 31, 26, 42, 23, 64
+    // 64, 57, 31
+
+    // 57 | 31
+    // 64 | 57
+    // 31 | 64
+    // 57 31 64
+    info!("rule_map: '{:?}', length {}", rule_map, rule_map.len());
+    let mut sorted_rules = vec![];
+
+    for (rule, rule_pairs) in rule_map {
+        debug!("Rule '{}' pairs: {:?}", rule, rule_pairs);
+        if sorted_rules.len() == 0 {
+            sorted_rules.insert(0, rule);
+            info!("Sorted rules: '{:?}'", sorted_rules);
+            continue;
+        }
+
+        'sorted_rules_loop: for i in 0..sorted_rules.len() {
+            if rule_pairs.contains(&sorted_rules[i]) {
+                debug!(
+                    "Rule Pairs contains current sorted rule '{}', inserting '{}'",
+                    sorted_rules[i], rule
+                );
+                sorted_rules.insert(i, rule);
+                break 'sorted_rules_loop;
+            } else {
+                debug!(
+                    "Rule Pairs do not contain current sorted rule '{}'",
+                    sorted_rules[i]
+                );
+                if i + 1 == sorted_rules.len() {
+                    debug!(
+                        "Reached end of sorted rules, adding rule '{}' to end of sorted rules",
+                        rule
+                    );
+                    sorted_rules.push(rule);
+                }
+            }
+        }
+        info!("Sorted rules: '{:?}'", sorted_rules);
     }
-    sorted_rules.reverse();
+
     info!("Sorted rules: '{:?}'", sorted_rules);
 
     sorted_rules
@@ -155,14 +219,11 @@ fn order_incorrect_update(update: &Update, rules: &Vec<Rule>) -> Update {
     info!("Reordering Incorrectly ordered update");
     debug!("Update: '{:?}', rules: '{:?}'", update, rules);
 
-    // This should be done outside this function (to reduce reptition of this function), but I'm going to leave it given the purpose of this program.
-    let ordered_rules: RuleList = compute_rule_order(rules);
-
     let mut ordered_update: Update = vec![];
-
+    let ordered_rules = compute_rule_order(&mut rules.clone(), update);
     for rule in ordered_rules {
         if update.contains(&rule) {
-            ordered_update.push(rule);
+            ordered_update.push(rule.to_owned());
         }
     }
 
@@ -170,6 +231,102 @@ fn order_incorrect_update(update: &Update, rules: &Vec<Rule>) -> Update {
 
     ordered_update
 }
+
+// fn compute_rule_order(rules: &Vec<Rule>) -> RuleList {
+//   info!("Computing Correct Rule Order");
+//   debug!("Rules: {:?}", &rules);
+
+//   let mut computing_rules = rules.clone();
+
+//   let mut sorted_rules = vec![];
+//   let mut current_rule = computing_rules[0][0];
+//   let mut iterator = 0;
+//   'compute_loop: while !(computing_rules.is_empty()) {
+//       if iterator >= 100000 {
+//           panic!("Entered infinite loop while computing correct rule order");
+//       }
+//       debug!("Current Rule '{}', iterator '{}'", current_rule, iterator);
+//       for rule in &computing_rules {
+//           trace!(
+//               "Current Rule '{}', rule to compare {:?}",
+//               current_rule,
+//               rule
+//           );
+//           if current_rule == rule[0] {
+//               current_rule = rule[1];
+//               iterator += 1;
+//               continue 'compute_loop;
+//           }
+//       }
+//       // We get here if we reached the end of the computing_rules list
+//       debug!("Adding rule to rules list '{}'", current_rule);
+//       sorted_rules.insert(0, current_rule);
+
+//       debug!(
+//           "Removing current_rule from all righthand side rules, computing_rules: {:?}",
+//           computing_rules
+//       );
+
+//       // Last rule, add final lefthand rule
+//       if computing_rules.len() <= 1 {
+//           sorted_rules.insert(0, computing_rules[0][0]);
+//           break;
+//       }
+
+//       computing_rules.retain(|rule| {
+//           if rule[1] == current_rule {
+//               return false;
+//           } else {
+//               return true;
+//           }
+//       });
+//       debug!("Computing Rules: {:?}", computing_rules);
+//       current_rule = computing_rules[0][0];
+//       iterator += 1;
+//   }
+
+//   info!("Sorted rules: '{:?}'", sorted_rules);
+
+//   sorted_rules
+// }
+
+// fn compute_rule_order(rules: &Vec<Rule>) -> RuleList {
+//   info!("Computing Correct Rule Order");
+//   debug!("Rules: {:?}", rules);
+
+//   let mut rule_counts: HashMap<i32, usize> = HashMap::new();
+//   for rule in rules {
+//       debug!("Rule '{}'", rule[0]);
+//       let mut count_option = rule_counts.get(&rule[0]);
+//       let mut count = count_option.get_or_insert(&0).to_owned();
+//       debug!("Count_Option {:?}, count {}", count_option, count);
+//       count += 1;
+//       rule_counts.insert(rule[0], count);
+//   }
+
+//   // Find the singular rule that is not left
+//   for rule in rules {
+//       if !rule_counts.contains_key(&rule[1]) {
+//           rule_counts.insert(rule[1], 0);
+//           break;
+//       }
+//   }
+
+//   info!(
+//       "rule counts: '{:?}', length {}",
+//       rule_counts,
+//       rule_counts.len()
+//   );
+//   let mut sorted_rules = vec![0; rule_counts.len()];
+//   for (rule, count) in rule_counts {
+//       debug!("Rule '{}', count '{}'", rule, count);
+//       sorted_rules[count] = rule;
+//   }
+//   sorted_rules.reverse();
+//   info!("Sorted rules: '{:?}'", sorted_rules);
+
+//   sorted_rules
+// }
 
 // pt2 attempt 1:
 // fn order_incorrect_update(update: &Update, rules: &Vec<Rule>) -> Update {
@@ -374,7 +531,7 @@ mod tests {
             143,
             calculate_middle_page_total(
                 Utf8PathBuf::from("./src/puzzle_inputs/day5_sample.txt"),
-                true
+                false
             )
         )
     }
@@ -415,7 +572,7 @@ mod tests {
 
         assert_eq!(
             vec![97, 75, 47, 61, 53, 29, 13],
-            compute_rule_order(&return_rules())
+            compute_rule_order(&mut return_rules(), &mut vec![97, 75, 47, 61, 53, 29, 13])
         )
     }
 
@@ -428,7 +585,7 @@ mod tests {
             123,
             calculate_middle_page_total(
                 Utf8PathBuf::from("./src/puzzle_inputs/day5_sample.txt"),
-                false
+                true
             )
         )
     }
