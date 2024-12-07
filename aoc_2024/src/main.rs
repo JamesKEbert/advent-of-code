@@ -10,6 +10,7 @@ use day2::{day2_cli_command_processing, Day2Commands};
 use day3::{day3_cli_command_processing, Day3Commands};
 use day4::{day4_cli_command_processing, Day4Commands};
 use day5::{day5_cli_command_processing, Day5Commands};
+use day6::{day6_cli_command_processing, Day6Commands};
 
 pub mod day1;
 pub mod day2;
@@ -56,6 +57,11 @@ enum Commands {
         #[command(subcommand)]
         command: Day5Commands,
     },
+    /// Run Day6 methods against input files
+    Day6 {
+        #[command(subcommand)]
+        command: Day6Commands,
+    },
 }
 
 fn main() {
@@ -71,6 +77,7 @@ fn main() {
         Commands::Day3 { command } => day3_cli_command_processing(command),
         Commands::Day4 { command } => day4_cli_command_processing(command),
         Commands::Day5 { command } => day5_cli_command_processing(command),
+        Commands::Day6 { command } => day6_cli_command_processing(command),
     }
 }
 

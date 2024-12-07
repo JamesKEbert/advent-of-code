@@ -1,5 +1,6 @@
 use camino::Utf8PathBuf;
 
+use clap::Subcommand;
 use std::{
     error::{self, Error},
     fmt::{self, Debug, Display},
@@ -8,11 +9,34 @@ use std::{
 
 use crate::read_file;
 
+#[derive(Subcommand, Debug)]
+pub enum Day6Commands {
+    /// Calculates Total Distinct Cells of guard path for given map
+    Calculate {
+        /// Input File Path
+        #[arg(short, long)]
+        path: Utf8PathBuf,
+    },
+}
+
+pub fn day6_cli_command_processing(command: &Day6Commands) {
+    match command {
+        Day6Commands::Calculate { path } => {
+            info!("Command received to calculate total distinct cells for guard");
+            println!(
+                "Total Number of Distinct Cells for guard's path: {}",
+                simulate_patrol(path.clone())
+            );
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Debug)]
 enum Entity {
     Empty,
     Obstruction,
     Guard(Guard),
+    Path,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -39,6 +63,7 @@ impl Display for Entity {
                 Direction::South => write!(f, "V"),
                 Direction::West => write!(f, "<"),
             },
+            Entity::Path => write!(f, "X"),
         }
     }
 }
@@ -50,6 +75,10 @@ struct Map {
 impl Map {
     pub fn new(grid: Vec<Vec<Entity>>) -> Self {
         Map { grid }
+    }
+
+    pub fn get_grid(&self) -> &Vec<Vec<Entity>> {
+        &self.grid
     }
 
     pub fn get_width(&self) -> usize {
@@ -132,13 +161,16 @@ fn find_guard(map: &Map) -> Option<(Position, Guard)> {
     None
 }
 // This is a little inefficient given that we aren't keeping track of the guard's position
-fn progress_guard(mut map: Map) -> Result<Map, Day6Error> {
+fn progress_guard(mut map: Map, trail: bool) -> Result<Map, Day6Error> {
     let (guard_position, guard) = find_guard(&map).ok_or(Day6Error::NoGuard)?;
 
     debug!("Guard Moving '{:?}'", guard.direction);
     // Remove from current position
-    map.grid[guard_position.y][guard_position.x] = Entity::Empty;
-
+    if trail {
+        map.grid[guard_position.y][guard_position.x] = Entity::Path;
+    } else {
+        map.grid[guard_position.y][guard_position.x] = Entity::Empty;
+    }
     // Out of bounds check
     // Determine new direction
     let mut new_direction = guard.direction.clone();
@@ -151,7 +183,7 @@ fn progress_guard(mut map: Map) -> Result<Map, Day6Error> {
                 return Ok(map);
             }
             // Determine if we turn right
-            if map.grid[guard_position.y - 1][guard_position.x] != Entity::Empty {
+            if map.grid[guard_position.y - 1][guard_position.x] == Entity::Obstruction {
                 new_direction = Direction::East;
             }
         }
@@ -163,7 +195,7 @@ fn progress_guard(mut map: Map) -> Result<Map, Day6Error> {
                 return Ok(map);
             }
             // Determine if we turn right
-            if map.grid[guard_position.y][guard_position.x + 1] != Entity::Empty {
+            if map.grid[guard_position.y][guard_position.x + 1] == Entity::Obstruction {
                 new_direction = Direction::South;
             }
         }
@@ -175,7 +207,7 @@ fn progress_guard(mut map: Map) -> Result<Map, Day6Error> {
                 return Ok(map);
             }
             // Determine if we turn right
-            if map.grid[guard_position.y + 1][guard_position.x] != Entity::Empty {
+            if map.grid[guard_position.y + 1][guard_position.x] == Entity::Obstruction {
                 new_direction = Direction::West;
             }
         }
@@ -187,7 +219,7 @@ fn progress_guard(mut map: Map) -> Result<Map, Day6Error> {
                 return Ok(map);
             }
             // Determine if we turn right
-            if map.grid[guard_position.y][guard_position.x - 1] != Entity::Empty {
+            if map.grid[guard_position.y][guard_position.x - 1] == Entity::Obstruction {
                 new_direction = Direction::North;
             }
         }
@@ -228,14 +260,26 @@ fn simulate_patrol(file_path: Utf8PathBuf) -> i32 {
     let mut map = parse_file(file_path);
     info!("Map:\n{}", map);
 
-    let mut positions = 1;
     while find_guard(&map).is_some() {
-        map = progress_guard(map).expect("guard to progress");
-        positions += 1;
+        map = progress_guard(map, true).expect("guard to progress");
         // info!("Map:\n{}", map);
     }
 
-    positions
+    calculate_unique_cells(&map)
+}
+
+fn calculate_unique_cells(map: &Map) -> i32 {
+    let mut unique_cells_count = 0;
+
+    for row in map.get_grid() {
+        for cell in row {
+            if cell == &Entity::Path {
+                unique_cells_count += 1;
+            }
+        }
+    }
+
+    unique_cells_count
 }
 
 #[derive(Debug, PartialEq)]
@@ -314,10 +358,11 @@ mod tests {
         map_final.grid[4][4] = Entity::Guard(Guard {
             direction: Direction::North,
         });
+        map_final.grid[5][4] = Entity::Path;
 
         assert_eq!(
             map_final,
-            progress_guard(map).expect("to receive map back"),
+            progress_guard(map, true).expect("to receive map back"),
             "Expect the guard to be one space to the north"
         );
     }
@@ -329,7 +374,7 @@ mod tests {
 
         assert_eq!(
             Err(Day6Error::NoGuard),
-            progress_guard(map),
+            progress_guard(map, true),
             "Expect a Day6Error:NoGuard to be returned"
         );
     }
@@ -344,10 +389,12 @@ mod tests {
 
         let mut map_final = create_empty_map();
 
+        map_final.grid[0][4] = Entity::Path;
+
         assert_eq!(
             map_final,
-            progress_guard(map).expect("to receive map back"),
-            "Expect a Day6Error:NoGuard to be returned"
+            progress_guard(map, true).expect("to receive map back"),
+            "Expected an empty map to be returned"
         );
     }
 
@@ -362,6 +409,7 @@ mod tests {
 
         let mut map_final = create_empty_map();
         map_final.grid[4][4] = Entity::Obstruction;
+        map_final.grid[5][4] = Entity::Path;
         map_final.grid[5][5] = Entity::Guard(Guard {
             direction: Direction::East,
         });
@@ -369,7 +417,7 @@ mod tests {
         debug!("Starting Map:\n{}", map);
         assert_eq!(
             map_final,
-            progress_guard(map).expect("to receive map back"),
+            progress_guard(map, true).expect("to receive map back"),
             "Expect the guard to turn and move one space to the east"
         );
     }
