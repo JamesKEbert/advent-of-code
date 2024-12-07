@@ -132,57 +132,110 @@ fn find_guard(map: &Map) -> Option<(Position, Guard)> {
     None
 }
 // This is a little inefficient given that we aren't keeping track of the guard's position
-fn progress_guard(mut map: Map, obstacle_behavior_right: bool) -> Result<Map, Day6Error> {
+fn progress_guard(mut map: Map) -> Result<Map, Day6Error> {
     let (guard_position, guard) = find_guard(&map).ok_or(Day6Error::NoGuard)?;
 
     debug!("Guard Moving '{:?}'", guard.direction);
     // Remove from current position
     map.grid[guard_position.y][guard_position.x] = Entity::Empty;
+
+    // Out of bounds check
+    // Determine new direction
+    let mut new_direction = guard.direction.clone();
     match guard {
         Guard {
             direction: Direction::North,
         } => {
-            // Out of bounds check, otherwise just continue and return map
-            if guard_position.y != 0 {
-                map.grid[guard_position.y - 1][guard_position.x] = Entity::Guard(Guard {
-                    direction: Direction::North,
-                })
+            // Out of bounds check, if so, just return map
+            if guard_position.y == 0 {
+                return Ok(map);
+            }
+            // Determine if we turn right
+            if map.grid[guard_position.y - 1][guard_position.x] != Entity::Empty {
+                new_direction = Direction::East;
             }
         }
         Guard {
             direction: Direction::East,
         } => {
-            // Out of bounds check, otherwise just continue and return map
-            if guard_position.x != map.get_width() - 1 {
-                map.grid[guard_position.y][guard_position.x + 1] = Entity::Guard(Guard {
-                    direction: Direction::East,
-                })
+            // Out of bounds check, if so, just return map
+            if guard_position.x == map.get_width() - 1 {
+                return Ok(map);
+            }
+            // Determine if we turn right
+            if map.grid[guard_position.y][guard_position.x + 1] != Entity::Empty {
+                new_direction = Direction::South;
             }
         }
         Guard {
             direction: Direction::South,
         } => {
-            // Out of bounds check, otherwise just continue and return map
-            if guard_position.y != map.get_height() - 1 {
-                map.grid[guard_position.y + 1][guard_position.x] = Entity::Guard(Guard {
-                    direction: Direction::South,
-                })
+            // Out of bounds check, if so, just return map
+            if guard_position.y == map.get_height() - 1 {
+                return Ok(map);
+            }
+            // Determine if we turn right
+            if map.grid[guard_position.y + 1][guard_position.x] != Entity::Empty {
+                new_direction = Direction::West;
             }
         }
         Guard {
             direction: Direction::West,
         } => {
-            // Out of bounds check, otherwise just continue and return map
-            if guard_position.x != 0 {
-                map.grid[guard_position.y][guard_position.x - 1] = Entity::Guard(Guard {
-                    direction: Direction::West,
-                })
+            // Out of bounds check, if so, just return map
+            if guard_position.x == 0 {
+                return Ok(map);
             }
+            // Determine if we turn right
+            if map.grid[guard_position.y][guard_position.x - 1] != Entity::Empty {
+                new_direction = Direction::North;
+            }
+        }
+    }
+
+    debug!("Guard's New Direction '{:?}'", new_direction);
+
+    // Place Guard in new direction cell
+    match new_direction {
+        Direction::North => {
+            map.grid[guard_position.y - 1][guard_position.x] = Entity::Guard(Guard {
+                direction: Direction::North,
+            })
+        }
+        Direction::East => {
+            map.grid[guard_position.y][guard_position.x + 1] = Entity::Guard(Guard {
+                direction: Direction::East,
+            })
+        }
+        Direction::South => {
+            map.grid[guard_position.y + 1][guard_position.x] = Entity::Guard(Guard {
+                direction: Direction::South,
+            })
+        }
+        Direction::West => {
+            map.grid[guard_position.y][guard_position.x - 1] = Entity::Guard(Guard {
+                direction: Direction::West,
+            })
         }
     }
     debug!("Updated Map: \n{}", map);
 
     Ok(map)
+}
+
+fn simulate_patrol(file_path: Utf8PathBuf) -> i32 {
+    info!("Simulating Patrol");
+    let mut map = parse_file(file_path);
+    info!("Map:\n{}", map);
+
+    let mut positions = 1;
+    while find_guard(&map).is_some() {
+        map = progress_guard(map).expect("guard to progress");
+        positions += 1;
+        // info!("Map:\n{}", map);
+    }
+
+    positions
 }
 
 #[derive(Debug, PartialEq)]
@@ -264,7 +317,7 @@ mod tests {
 
         assert_eq!(
             map_final,
-            progress_guard(map, true).expect("to receive map back"),
+            progress_guard(map).expect("to receive map back"),
             "Expect the guard to be one space to the north"
         );
     }
@@ -276,7 +329,7 @@ mod tests {
 
         assert_eq!(
             Err(Day6Error::NoGuard),
-            progress_guard(map, true),
+            progress_guard(map),
             "Expect a Day6Error:NoGuard to be returned"
         );
     }
@@ -293,7 +346,7 @@ mod tests {
 
         assert_eq!(
             map_final,
-            progress_guard(map, true).expect("to receive map back"),
+            progress_guard(map).expect("to receive map back"),
             "Expect a Day6Error:NoGuard to be returned"
         );
     }
@@ -308,15 +361,26 @@ mod tests {
         });
 
         let mut map_final = create_empty_map();
-        map.grid[4][4] = Entity::Obstruction;
+        map_final.grid[4][4] = Entity::Obstruction;
         map_final.grid[5][5] = Entity::Guard(Guard {
             direction: Direction::East,
         });
 
+        debug!("Starting Map:\n{}", map);
         assert_eq!(
             map_final,
-            progress_guard(map, true).expect("to receive map back"),
+            progress_guard(map).expect("to receive map back"),
             "Expect the guard to turn and move one space to the east"
         );
+    }
+
+    #[test]
+    fn test_simulate_patrol_sample_data() {
+        test_init();
+
+        assert_eq!(
+            41,
+            simulate_patrol(Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"))
+        )
     }
 }
