@@ -290,42 +290,53 @@ fn order_incorrect_update(update: &Update, rules: &Vec<Rule>) -> Update {
 //   sorted_rules
 // }
 
-// fn compute_rule_order(rules: &Vec<Rule>) -> RuleList {
-//   info!("Computing Correct Rule Order");
-//   debug!("Rules: {:?}", rules);
+// This also works (but didn't if you don't filter for the relevant rules first)
+// fn compute_rule_order(rules: &mut Vec<Rule>, relevant_rules: &Vec<i32>) -> RuleList {
+//     info!("Computing Correct Rule Order");
 
-//   let mut rule_counts: HashMap<i32, usize> = HashMap::new();
-//   for rule in rules {
-//       debug!("Rule '{}'", rule[0]);
-//       let mut count_option = rule_counts.get(&rule[0]);
-//       let mut count = count_option.get_or_insert(&0).to_owned();
-//       debug!("Count_Option {:?}, count {}", count_option, count);
-//       count += 1;
-//       rule_counts.insert(rule[0], count);
-//   }
+//     debug!("Rules: {:?}, relevant_rules: {:?}", rules, relevant_rules);
 
-//   // Find the singular rule that is not left
-//   for rule in rules {
-//       if !rule_counts.contains_key(&rule[1]) {
-//           rule_counts.insert(rule[1], 0);
-//           break;
-//       }
-//   }
+//     rules.retain(|rule_pair| {
+//         if relevant_rules.contains(&rule_pair[0]) && relevant_rules.contains(&rule_pair[1]) {
+//             return true;
+//         } else {
+//             return false;
+//         }
+//     });
+//     debug!("Rules: {:?}, relevant_rules: {:?}", rules, relevant_rules);
 
-//   info!(
-//       "rule counts: '{:?}', length {}",
-//       rule_counts,
-//       rule_counts.len()
-//   );
-//   let mut sorted_rules = vec![0; rule_counts.len()];
-//   for (rule, count) in rule_counts {
-//       debug!("Rule '{}', count '{}'", rule, count);
-//       sorted_rules[count] = rule;
-//   }
-//   sorted_rules.reverse();
-//   info!("Sorted rules: '{:?}'", sorted_rules);
+//     let mut rule_counts: HashMap<i32, usize> = HashMap::new();
+//     for rule in rules.clone() {
+//         debug!("Rule '{}'", rule[0]);
+//         let mut count_option = rule_counts.get(&rule[0]);
+//         let mut count = count_option.get_or_insert(&0).to_owned();
+//         debug!("Count_Option {:?}, count {}", count_option, count);
+//         count += 1;
+//         rule_counts.insert(rule[0], count);
+//     }
 
-//   sorted_rules
+//     // Find the singular rule that is not left
+//     for rule in rules {
+//         if !rule_counts.contains_key(&rule[1]) {
+//             rule_counts.insert(rule[1], 0);
+//             break;
+//         }
+//     }
+
+//     info!(
+//         "rule counts: '{:?}', length {}",
+//         rule_counts,
+//         rule_counts.len()
+//     );
+//     let mut sorted_rules = vec![0; rule_counts.len()];
+//     for (rule, count) in rule_counts {
+//         debug!("Rule '{}', count '{}'", rule, count);
+//         sorted_rules[count] = rule;
+//     }
+//     sorted_rules.reverse();
+//     info!("Sorted rules: '{:?}'", sorted_rules);
+
+//     sorted_rules
 // }
 
 // pt2 attempt 1:
