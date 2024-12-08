@@ -11,3 +11,7 @@ Got taught a valuable lesson as part of this day--breaks are really important. I
 I also learned a little bit more intuitive usage of when functions should take a reference or consume a parameter (which felt nice). I also learned about .source() on errors, which will be nice on another project I'm working on.
 
 Hopefully the next days are a bit easier and I can catch up 😅
+
+### Day 7
+
+This was surprisingly easy! I hate recurision 100% still though. But was easy though.
