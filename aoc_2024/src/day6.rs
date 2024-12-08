@@ -2,6 +2,7 @@ use camino::Utf8PathBuf;
 
 use clap::Subcommand;
 use std::{
+    collections::HashMap,
     error::{self},
     fmt::{self, Debug, Display},
     vec,
@@ -29,11 +30,10 @@ pub fn day6_cli_command_processing(command: &Day6Commands) {
             valid_obstructions,
         } => {
             info!("Command received to calculate total distinct cells for guard");
-            // println!(
-            //     "Total Number of Distinct Cells for guard's path: {}",
-            //     simulate_patrol(path.clone(), valid_obstructions.to_owned())
-            //         .expect("Simulations to work")
-            // );
+            println!(
+                "Total Number of Distinct Cells for guard's path: {}",
+                count_distinct_cells(path.clone(), 10000,)
+            );
         }
     }
 }
@@ -109,6 +109,7 @@ impl Display for Map {
     }
 }
 
+#[derive(PartialEq, Eq, Hash)]
 struct Position {
     x: usize,
     y: usize,
@@ -116,7 +117,7 @@ struct Position {
 
 impl Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}][{}]", self.x, self.y)
+        write!(f, "({},{})", self.x, self.y)
     }
 }
 
@@ -264,20 +265,40 @@ fn move_guard(mut map: Map, mut guard: &mut Guard) -> (Map, Guard) {
     (map, guard.to_owned())
 }
 
-fn simulate_patrol(mut map: Map, guard: Guard) {}
+fn simulate_patrol(mut map: Map, guard: &mut Guard, limit: i32) -> Vec<Guard> {
+    let mut guard_positions = vec![];
 
-fn calculate_unique_cells(map: &Map, entity_type: Entity) -> i32 {
-    let mut unique_cells_count = 0;
-
-    for row in map.get_grid() {
-        for cell in row {
-            if cell == &entity_type {
-                unique_cells_count += 1;
-            }
+    let mut iteration = 0;
+    while iteration < limit {
+        trace!("Iteration {}", iteration);
+        if guard.x == usize::MAX || guard.y == usize::MAX {
+            break;
         }
+
+        guard_positions.push(guard.clone());
+        (map, *guard) = move_guard(map, guard);
     }
 
-    unique_cells_count
+    guard_positions
+}
+
+fn count_distinct_cells(file_path: Utf8PathBuf, simulation_limit: i32) -> usize {
+    let map = parse_file(file_path);
+    let mut guard = find_guard(&map).expect("guard to exist in map");
+    let guard_positions = simulate_patrol(map, &mut guard, simulation_limit);
+
+    let mut unique_positions: HashMap<Position, Guard> = HashMap::new();
+    for guard in guard_positions {
+        unique_positions.insert(
+            Position {
+                x: guard.x,
+                y: guard.y,
+            },
+            guard,
+        );
+    }
+
+    unique_positions.len()
 }
 
 #[cfg(test)]
@@ -354,73 +375,53 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_progress_guard_no_guard() {
-    //     test_init();
-    //     let map = create_empty_map();
+    #[test]
+    fn test_simulate_patrol() {
+        test_init();
+        let mut original_guard = Guard {
+            direction: Direction::North,
+            x: 4,
+            y: 2,
+        };
+        let mut map: Map = create_empty_map();
+        map.grid[2][4] = Entity::Guard(original_guard.clone());
+        debug!("Original Map: \n{}", map);
 
-    //     assert_eq!(
-    //         Err(Day6Error::NoGuard),
-    //         progress_guard(map, true),
-    //         "Expect a Day6Error:NoGuard to be returned"
-    //     );
-    // }
+        assert_eq!(
+            vec![
+                Guard {
+                    x: 4,
+                    y: 2,
+                    direction: Direction::North
+                },
+                Guard {
+                    x: 4,
+                    y: 1,
+                    direction: Direction::North
+                },
+                Guard {
+                    x: 4,
+                    y: 0,
+                    direction: Direction::North
+                },
+            ],
+            simulate_patrol(map, &mut original_guard, 100),
+            "Expected a vector of guard positions"
+        );
+    }
 
-    // #[test]
-    // fn test_progress_guard_out_of_bounds() {
-    //     test_init();
-    //     let mut map = create_empty_map();
-    //     map.grid[0][4] = Entity::Guard(Guard {
-    //         direction: Direction::North,
-    //     });
+    #[test]
+    fn test_simulate_patrol_sample_data() {
+        test_init();
 
-    //     let mut map_final = create_empty_map();
-
-    //     map_final.grid[0][4] = Entity::Path;
-
-    //     assert_eq!(
-    //         map_final,
-    //         progress_guard(map, true).expect("to receive map back"),
-    //         "Expected an empty map to be returned"
-    //     );
-    // }
-
-    // #[test]
-    // fn test_progress_guard_obstacle() {
-    //     test_init();
-    //     let mut map = create_empty_map();
-    //     map.grid[4][4] = Entity::Obstruction;
-    //     map.grid[5][4] = Entity::Guard(Guard {
-    //         direction: Direction::North,
-    //     });
-
-    //     let mut map_final = create_empty_map();
-    //     map_final.grid[4][4] = Entity::Obstruction;
-    //     map_final.grid[5][4] = Entity::Guard(Guard {
-    //         direction: Direction::East,
-    //     });
-
-    //     debug!("Starting Map:\n{}", map);
-    //     assert_eq!(
-    //         map_final,
-    //         progress_guard(map, true).expect("to receive map back"),
-    //         "Expect the guard to turn to the east"
-    //     );
-    // }
-
-    // #[test]
-    // fn test_simulate_patrol_sample_data() {
-    //     test_init();
-
-    //     assert_eq!(
-    //         41,
-    //         simulate_patrol(
-    //             Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
-    //             false
-    //         )
-    //         .expect("Simulation to work")
-    //     )
-    // }
+        assert_eq!(
+            41,
+            count_distinct_cells(
+                Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
+                10000
+            )
+        )
+    }
 
     // #[test]
     // fn test_simulate_patrol_add_obstructions_sample_data() {
