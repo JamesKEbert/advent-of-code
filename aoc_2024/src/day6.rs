@@ -3,6 +3,7 @@ use camino::Utf8PathBuf;
 use clap::Subcommand;
 use std::{
     collections::HashMap,
+    error,
     fmt::{self, Debug, Display},
     vec,
 };
@@ -16,22 +17,35 @@ pub enum Day6Commands {
         /// Input File Path
         #[arg(short, long)]
         path: Utf8PathBuf,
-        /// Whether to test for valid obstructions
-        #[arg(long, default_value_t = false)]
-        valid_obstructions: bool,
+        /// Patrol Simulation Limit
+        #[arg(long, default_value_t = 10000)]
+        limit: i32,
+    },
+    /// Calculates total number of valid positions for obstructions that would create an infinite loop
+    CheckObstructions {
+        /// Input File Path
+        #[arg(short, long)]
+        path: Utf8PathBuf,
+        /// Patrol Simulation Limit
+        #[arg(long, default_value_t = 10000)]
+        limit: i32,
     },
 }
 
 pub fn day6_cli_command_processing(command: &Day6Commands) {
     match command {
-        Day6Commands::Calculate {
-            path,
-            valid_obstructions: _,
-        } => {
+        Day6Commands::Calculate { path, limit } => {
             info!("Command received to calculate total distinct cells for guard");
             println!(
                 "Total Number of Distinct Cells for guard's path: {}",
-                count_distinct_cells(path.clone(), 10000,)
+                count_distinct_cells(path.clone(), limit.to_owned())
+            );
+        }
+        Day6Commands::CheckObstructions { path, limit } => {
+            info!("Command received to check number of valid obstructions");
+            println!(
+                "Total Number of valid obstruction positions: {}",
+                test_obstructions(path.clone(), limit.to_owned())
             );
         }
     }
@@ -42,16 +56,23 @@ enum Entity {
     Empty,
     Obstruction,
     Guard(Guard),
+    Path(Path),
 }
 
 #[derive(Clone, PartialEq, Debug)]
+enum Path {
+    Vertical,
+    Horizontal,
+}
+
+#[derive(Clone, PartialEq, Debug, Eq, Hash)]
 struct Guard {
     direction: Direction,
     x: usize,
     y: usize,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Eq, Hash)]
 enum Direction {
     North,
     East,
@@ -69,6 +90,10 @@ impl Display for Entity {
                 Direction::East => write!(f, ">"),
                 Direction::South => write!(f, "V"),
                 Direction::West => write!(f, "<"),
+            },
+            Entity::Path(path) => match path {
+                Path::Vertical => write!(f, "|"),
+                Path::Horizontal => write!(f, "-"),
             },
         }
     }
@@ -116,29 +141,34 @@ impl Display for Position {
     }
 }
 
-// #[derive(Debug, PartialEq)]
-// enum Day6Error {
-//     NoGuard,
-//     GoingOutOfBounds,
-// }
+#[derive(Debug, PartialEq)]
+enum Day6Error {
+    // NoGuard,
+    // GoingOutOfBounds,
+    ExceededLimit,
+}
 
-// impl fmt::Display for Day6Error {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         match *self {
-//             Day6Error::NoGuard => write!(f, "no guard found in map"),
-//             Day6Error::GoingOutOfBounds => write!(f, "guard going out of bounds"),
-//         }
-//     }
-// }
+impl fmt::Display for Day6Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            // Day6Error::NoGuard => write!(f, "no guard found in map"),
+            // Day6Error::GoingOutOfBounds => write!(f, "guard going out of bounds"),
+            Day6Error::ExceededLimit => {
+                write!(f, "guard simulation exceeded simulation iteration limit")
+            }
+        }
+    }
+}
 
-// impl error::Error for Day6Error {
-//     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-//         match *self {
-//             Day6Error::NoGuard => None,
-//             Day6Error::GoingOutOfBounds => None,
-//         }
-//     }
-// }
+impl error::Error for Day6Error {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match *self {
+            // Day6Error::NoGuard => None,
+            // Day6Error::GoingOutOfBounds => None,
+            Day6Error::ExceededLimit => None,
+        }
+    }
+}
 
 fn parse_file(file_path: Utf8PathBuf) -> Map {
     info!("Parsing File");
@@ -260,39 +290,112 @@ fn move_guard(mut map: Map, guard: &mut Guard) -> (Map, Guard) {
     (map, guard.to_owned())
 }
 
-fn simulate_patrol(mut map: Map, guard: &mut Guard, limit: i32) -> HashMap<Position, Guard> {
-    let mut guard_positions: HashMap<Position, Guard> = HashMap::new();
+fn simulate_patrol(
+    mut map: Map,
+    guard: &mut Guard,
+    limit: i32,
+) -> Result<HashMap<Guard, Guard>, Day6Error> {
+    trace!("Simulating Patrol");
+    let mut guard_positions: HashMap<Guard, Guard> = HashMap::new();
 
     let mut iteration = 0;
-    while iteration < limit {
+    loop {
         trace!("Iteration {}", iteration);
+        if iteration > limit {
+            debug!("Simulation hit limit set");
+            return Err(Day6Error::ExceededLimit);
+        }
         if guard.x == usize::MAX || guard.y == usize::MAX {
             break;
         }
 
-        guard_positions.insert(
-            Position {
-                x: guard.x,
-                y: guard.y,
-            },
-            guard.clone(),
-        );
+        guard_positions.insert(guard.clone(), guard.clone());
         (map, *guard) = move_guard(map, guard);
         iteration += 1;
     }
 
-    guard_positions
+    Ok(guard_positions)
 }
 
 fn count_distinct_cells(file_path: Utf8PathBuf, simulation_limit: i32) -> usize {
     let map = parse_file(file_path);
     let mut guard = find_guard(&map).expect("guard to exist in map");
-    let guard_positions = simulate_patrol(map, &mut guard, simulation_limit);
+    let guard_positions = simulate_patrol(map, &mut guard, simulation_limit)
+        .expect("expected map to be simulated correctly");
 
-    guard_positions.len()
+    let mut unique_positions: HashMap<Position, Guard> = HashMap::new();
+    for (_unique_position, unique_guard) in guard_positions {
+        unique_positions.insert(
+            Position {
+                x: unique_guard.x,
+                y: unique_guard.y,
+            },
+            unique_guard,
+        );
+    }
+    unique_positions.len()
 }
 
-// fn test_obstructions() -> usize {}
+fn test_obstructions(file_path: Utf8PathBuf, simulation_limit: i32) -> usize {
+    let map = parse_file(file_path);
+    let mut guard = find_guard(&map).expect("guard to exist in map");
+    let obstruction_guard = guard.clone();
+    let guard_positions = simulate_patrol(map.clone(), &mut guard, simulation_limit)
+        .expect("expected map to be simulated correctly");
+
+    // Pretty print the guard's path
+    let mut patrol_path_map = map.clone();
+    for (_position, historical_guard) in guard_positions.clone() {
+        match historical_guard.direction {
+            Direction::North | Direction::South => {
+                patrol_path_map.grid[historical_guard.y][historical_guard.x] =
+                    Entity::Path(Path::Vertical);
+            }
+            Direction::East | Direction::West => {
+                patrol_path_map.grid[historical_guard.y][historical_guard.x] =
+                    Entity::Path(Path::Horizontal);
+            }
+        }
+    }
+    info!("Patrol Path:\n{}", patrol_path_map);
+
+    let mut valid_obstruction_count = 0;
+
+    let mut iteration = 0;
+    let total_iterations = guard_positions.len();
+    for (_position, historical_guard) in guard_positions {
+        info!(
+            "Obstruction Position Check {}/{}",
+            iteration, total_iterations
+        );
+        if !check_moving_out_of_bounds(map.get_width(), map.get_height(), &historical_guard) {
+            // We cannot place an obstruction where the guard starts
+            if historical_guard.x != obstruction_guard.x
+                && historical_guard.y != obstruction_guard.y
+                && historical_guard.direction != obstruction_guard.direction
+            {
+                let mut test_map = map.clone();
+                test_map.grid[historical_guard.y][historical_guard.x] = Entity::Obstruction;
+                trace!("Testing map:\n{}", test_map);
+                if simulate_patrol(
+                    test_map.clone(),
+                    &mut obstruction_guard.clone(),
+                    simulation_limit,
+                )
+                .is_err()
+                {
+                    debug!("Valid Obstruction, map:\n{}", test_map);
+                    valid_obstruction_count += 1;
+                } else {
+                    debug!("Invalid Obstruction");
+                }
+            }
+        }
+        iteration += 1;
+    }
+
+    valid_obstruction_count
+}
 
 #[cfg(test)]
 mod tests {
@@ -380,35 +483,31 @@ mod tests {
         map.grid[2][4] = Entity::Guard(original_guard.clone());
         debug!("Original Map: \n{}", map);
 
-        let mut guard_positions: HashMap<Position, Guard> = HashMap::new();
-        guard_positions.insert(
-            Position { x: 4, y: 2 },
-            Guard {
-                x: 4,
-                y: 2,
-                direction: Direction::North,
-            },
-        );
-        guard_positions.insert(
-            Position { x: 4, y: 1 },
-            Guard {
-                x: 4,
-                y: 1,
-                direction: Direction::North,
-            },
-        );
-        guard_positions.insert(
-            Position { x: 4, y: 0 },
-            Guard {
-                x: 4,
-                y: 0,
-                direction: Direction::North,
-            },
-        );
+        let mut guard_positions: HashMap<Guard, Guard> = HashMap::new();
+        let guard1 = Guard {
+            x: 4,
+            y: 2,
+            direction: Direction::North,
+        };
+        guard_positions.insert(guard1.clone(), guard1);
+
+        let guard2 = Guard {
+            x: 4,
+            y: 1,
+            direction: Direction::North,
+        };
+        guard_positions.insert(guard2.clone(), guard2);
+
+        let guard3 = Guard {
+            x: 4,
+            y: 0,
+            direction: Direction::North,
+        };
+        guard_positions.insert(guard3.clone(), guard3);
 
         assert_eq!(
             guard_positions,
-            simulate_patrol(map, &mut original_guard, 100),
+            simulate_patrol(map, &mut original_guard, 100).expect("to be simulated correctly"),
             "Expected a vector of guard positions"
         );
     }
@@ -421,22 +520,21 @@ mod tests {
             41,
             count_distinct_cells(
                 Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
-                10000
+                100
             )
         )
     }
 
-    // #[test]
-    // fn test_simulate_patrol_add_obstructions_sample_data() {
-    //     test_init();
+    #[test]
+    fn test_add_obstructions_sample_data() {
+        test_init();
 
-    //     assert_eq!(
-    //         6,
-    //         simulate_patrol(
-    //             Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
-    //             true
-    //         )
-    //         .expect("Simulation to work")
-    //     )
-    // }
+        assert_eq!(
+            6,
+            test_obstructions(
+                Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
+                100
+            )
+        )
+    }
 }
