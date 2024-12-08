@@ -33,6 +33,12 @@ struct Position {
     frequency: char,
 }
 
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+struct Coordinates {
+    x: i32,
+    y: i32,
+}
+
 fn parse_file(file_path: Utf8PathBuf) -> (Vec<HashSet<Position>>, usize, usize) {
     let mut map: Vec<HashSet<Position>> = vec![];
     let mut frequency_index: HashMap<char, usize> = HashMap::new();
@@ -164,11 +170,21 @@ fn calculate_all_antinodes(file_path: Utf8PathBuf) -> usize {
             && position.y >= 0
             && position.y < height as i32
     });
-    display_map(&antinode_map, width, height);
-    antinode_map.len() - 1
+
+    let mut deduped_antinode_map: HashSet<Coordinates> = HashSet::new();
+    for node in antinode_map {
+        deduped_antinode_map.insert(Coordinates {
+            x: node.x,
+            y: node.y,
+        });
+    }
+
+    display_map(&deduped_antinode_map, width, height);
+    debug!("Antinode map {:?}", deduped_antinode_map);
+    deduped_antinode_map.len()
 }
 
-fn display_map(map: &HashSet<Position>, width: usize, height: usize) -> () {
+fn display_map(map: &HashSet<Coordinates>, width: usize, height: usize) -> () {
     let mut grid: Vec<Vec<char>> = vec![vec!['.'; width]; height];
     for position in map {
         grid[position.y as usize][position.x as usize] = '#';
