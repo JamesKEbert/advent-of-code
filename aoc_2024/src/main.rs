@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, time::Instant};
 
 #[macro_use]
 extern crate log;
@@ -71,6 +71,8 @@ fn main() {
     builder.filter(None, cli.log_level);
     builder.init();
 
+    let start = Instant::now();
+
     match &cli.command {
         Commands::Day1 { command } => day1_cli_command_processing(command),
         Commands::Day2 { command } => day2_cli_command_processing(command),
@@ -79,6 +81,8 @@ fn main() {
         Commands::Day5 { command } => day5_cli_command_processing(command),
         Commands::Day6 { command } => day6_cli_command_processing(command),
     }
+
+    println!("Elapsed time: {:.2?}", start.elapsed());
 }
 
 pub fn read_file(file_path: Utf8PathBuf) -> String {
