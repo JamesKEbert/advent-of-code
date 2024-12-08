@@ -29,11 +29,11 @@ pub fn day6_cli_command_processing(command: &Day6Commands) {
             valid_obstructions,
         } => {
             info!("Command received to calculate total distinct cells for guard");
-            println!(
-                "Total Number of Distinct Cells for guard's path: {}",
-                simulate_patrol(path.clone(), valid_obstructions.to_owned())
-                    .expect("Simulations to work")
-            );
+            // println!(
+            //     "Total Number of Distinct Cells for guard's path: {}",
+            //     simulate_patrol(path.clone(), valid_obstructions.to_owned())
+            //         .expect("Simulations to work")
+            // );
         }
     }
 }
@@ -43,13 +43,13 @@ enum Entity {
     Empty,
     Obstruction,
     Guard(Guard),
-    Path,
-    ValidObstruction,
 }
 
 #[derive(Clone, PartialEq, Debug)]
 struct Guard {
     direction: Direction,
+    x: usize,
+    y: usize,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -71,8 +71,6 @@ impl Display for Entity {
                 Direction::South => write!(f, "V"),
                 Direction::West => write!(f, "<"),
             },
-            Entity::Path => write!(f, "X"),
-            Entity::ValidObstruction => write!(f, "O"),
         }
     }
 }
@@ -122,379 +120,6 @@ impl Display for Position {
     }
 }
 
-fn parse_file(file_path: Utf8PathBuf) -> Map {
-    info!("Parsing File");
-    let content = read_file(file_path);
-
-    let mut map: Map = Map::new(vec![]);
-    let rows = content.split("\n");
-    for row in rows {
-        let mut parsed_row: Vec<Entity> = vec![];
-        for cell in row.to_owned().chars() {
-            match cell {
-                '.' => parsed_row.push(Entity::Empty),
-                '#' => parsed_row.push(Entity::Obstruction),
-                '^' => parsed_row.push(Entity::Guard(Guard {
-                    direction: Direction::North,
-                })),
-                '>' => parsed_row.push(Entity::Guard(Guard {
-                    direction: Direction::East,
-                })),
-                'V' => parsed_row.push(Entity::Guard(Guard {
-                    direction: Direction::South,
-                })),
-                '<' => parsed_row.push(Entity::Guard(Guard {
-                    direction: Direction::West,
-                })),
-                _ => panic!("Unidentified cell content in file: '{}'", cell),
-            }
-        }
-        map.grid.push(parsed_row);
-    }
-
-    info!("Parsed Map:\n{}", map);
-
-    map
-}
-
-fn find_guard(map: &Map) -> Option<(Position, Guard)> {
-    for (y, row) in map.grid.iter().enumerate() {
-        for (x, cell) in row.iter().enumerate() {
-            if let Entity::Guard(guard) = cell {
-                let position = Position { x, y };
-                trace!("Found guard at {}", position);
-                return Some((position, guard.clone()));
-            }
-        }
-    }
-    None
-}
-
-fn get_new_direction(
-    map: &Map,
-    guard_position: &Position,
-    guard: &Guard,
-) -> Result<(Direction, bool), Day6Error> {
-    let mut new_direction = guard.direction.clone();
-    let mut turned = false;
-
-    match guard {
-        Guard {
-            direction: Direction::North,
-        } => {
-            // Out of bounds check
-            if guard_position.y == 0 {
-                return Err(Day6Error::GoingOutOfBounds);
-            }
-            // Determine if we turn right
-            if map.grid[guard_position.y - 1][guard_position.x] == Entity::Obstruction {
-                new_direction = Direction::East;
-                turned = true;
-            }
-        }
-        Guard {
-            direction: Direction::East,
-        } => {
-            // Out of bounds check
-            if guard_position.x == map.get_width() - 1 {
-                return Err(Day6Error::GoingOutOfBounds);
-            }
-            // Determine if we turn right
-            if map.grid[guard_position.y][guard_position.x + 1] == Entity::Obstruction {
-                new_direction = Direction::South;
-                turned = true;
-            }
-        }
-        Guard {
-            direction: Direction::South,
-        } => {
-            // Out of bounds check
-            if guard_position.y == map.get_height() - 1 {
-                return Err(Day6Error::GoingOutOfBounds);
-            }
-            // Determine if we turn right
-            if map.grid[guard_position.y + 1][guard_position.x] == Entity::Obstruction {
-                new_direction = Direction::West;
-                turned = true;
-            }
-        }
-        Guard {
-            direction: Direction::West,
-        } => {
-            // Out of bounds check
-            if guard_position.x == 0 {
-                return Err(Day6Error::GoingOutOfBounds);
-            }
-            // Determine if we turn right
-            if map.grid[guard_position.y][guard_position.x - 1] == Entity::Obstruction {
-                new_direction = Direction::North;
-                turned = true;
-            }
-        }
-    }
-    Ok((new_direction, turned))
-}
-// This is a little inefficient given that we aren't keeping track of the guard's position
-fn progress_guard(mut map: Map, trail: bool) -> Result<Map, Day6Error> {
-    let (guard_position, guard) = find_guard(&map).ok_or(Day6Error::NoGuard)?;
-
-    trace!("Guard Moving '{:?}'", guard.direction);
-    // Remove from current position
-    if trail {
-        map.grid[guard_position.y][guard_position.x] = Entity::Path;
-    } else {
-        map.grid[guard_position.y][guard_position.x] = Entity::Empty;
-    }
-    // Determine new direction
-    match get_new_direction(&map, &guard_position, &guard) {
-        Ok((new_direction, turned)) => {
-            trace!("Guard's New Direction '{:?}'", new_direction);
-
-            if turned {
-                map.grid[guard_position.y][guard_position.x] = Entity::Guard(Guard {
-                    direction: new_direction.clone(),
-                })
-            } else {
-                // Place Guard in new direction cell
-                match new_direction {
-                    Direction::North => {
-                        map.grid[guard_position.y - 1][guard_position.x] = Entity::Guard(Guard {
-                            direction: new_direction,
-                        })
-                    }
-                    Direction::East => {
-                        map.grid[guard_position.y][guard_position.x + 1] = Entity::Guard(Guard {
-                            direction: new_direction,
-                        })
-                    }
-                    Direction::South => {
-                        map.grid[guard_position.y + 1][guard_position.x] = Entity::Guard(Guard {
-                            direction: new_direction,
-                        })
-                    }
-                    Direction::West => {
-                        map.grid[guard_position.y][guard_position.x - 1] = Entity::Guard(Guard {
-                            direction: new_direction,
-                        })
-                    }
-                }
-            }
-        }
-        Err(_error) => return Ok(map),
-    }
-
-    trace!("Updated Map: \n{}", map);
-
-    Ok(map)
-}
-
-fn simulate_patrol(file_path: Utf8PathBuf, test_add_obstructions: bool) -> Result<i32, Day6Error> {
-    info!("Simulating Patrol");
-    let mut map = parse_file(file_path);
-    let original_map = map.clone();
-    info!("Map:\n{}", map);
-
-    let mut iteration = 0;
-
-    while find_guard(&map).is_some() {
-        debug!("Map:\n{}", map);
-        map = progress_guard(map, true)?;
-        iteration += 1;
-        println!("Iteration {}", iteration,);
-    }
-
-    println!("Total Iterations: {}", iteration);
-    if test_add_obstructions {
-        Ok(add_obstructions(map, original_map)?)
-    } else {
-        Ok(calculate_unique_cells(&map, Entity::Path))
-    }
-}
-
-fn add_obstructions(map: Map, mut original_map: Map) -> Result<i32, Day6Error> {
-    info!(
-        "testing adding obstructions to guard's path with map: \n{}",
-        map
-    );
-    let mut valid_obstructions = 0;
-
-    println!("Map Size: {}x{}", map.get_width(), map.get_height());
-    for (y, row) in map.grid.iter().enumerate() {
-        for (x, cell) in row.iter().enumerate() {
-            println!("Cell {}: '{}'", Position { x, y }, cell);
-
-            let mut evaluate = false;
-            if cell == &Entity::Path {
-                evaluate = true;
-            }
-            if cell == &Entity::Empty {
-                if y < map.get_height() - 1 {
-                    if map.grid[y + 1][x] == Entity::Path {
-                        evaluate = true;
-                    }
-                }
-                if x < map.get_width() - 1 {
-                    if map.grid[y][x + 1] == Entity::Path {
-                        evaluate = true;
-                    }
-                }
-                if x > 0 {
-                    if map.grid[y][x - 1] == Entity::Path {
-                        evaluate = true;
-                    }
-                }
-                if y > 0 {
-                    if map.grid[y - 1][x] == Entity::Path {
-                        evaluate = true;
-                    }
-                }
-            }
-            if evaluate {
-                info!(
-                    "Cell {} is a possible obstruction point, testing adding obstruction",
-                    Position { x, y }
-                );
-
-                let original_entity = original_map.grid[y][x].to_owned();
-                original_map.grid[y][x] = Entity::Obstruction;
-                if simulate_infinite_patrol(original_map.clone(), 10000, 20)? {
-                    info!(
-                        "Valid Infinite Loop Obstruction found at {}",
-                        Position { x, y }
-                    );
-                    original_map.grid[y][x] = Entity::ValidObstruction;
-                } else {
-                    info!("Invalid Infinite Loop obstruction at {}", Position { x, y });
-                    original_map.grid[y][x] = original_entity;
-                }
-            }
-        }
-    }
-    debug!("Valid Obstructions Map:\n{}", original_map);
-    valid_obstructions += calculate_unique_cells(&original_map, Entity::ValidObstruction);
-
-    Ok(valid_obstructions)
-}
-
-fn simulate_infinite_patrol(
-    mut map: Map,
-    limit: i32,
-    repeat_limit: i32,
-) -> Result<bool, Day6Error> {
-    info!("Simulating Infinite Patrol");
-
-    let mut iterations = 0;
-    let mut repeats = 0;
-    loop {
-        let guard_result = find_guard(&map);
-        if guard_result.is_none() {
-            return Ok(false);
-        } else {
-            let (guard_position, guard) = guard_result.expect("to be valid data");
-
-            match get_new_direction(&map, &guard_position, &guard) {
-                Ok((new_direction, _turned)) => match new_direction {
-                    Direction::North => {
-                        if map.grid[guard_position.y - 1][guard_position.x] == Entity::Path {
-                            repeats += 1;
-                        } else {
-                            repeats = 0;
-                        }
-                    }
-                    Direction::East => {
-                        if map.grid[guard_position.y][guard_position.x + 1] == Entity::Path {
-                            repeats += 1;
-                        } else {
-                            repeats = 0;
-                        }
-                    }
-                    Direction::South => {
-                        if map.grid[guard_position.y + 1][guard_position.x] == Entity::Path {
-                            repeats += 1;
-                        } else {
-                            repeats = 0;
-                        }
-                    }
-                    Direction::West => {
-                        if map.grid[guard_position.y][guard_position.x - 1] == Entity::Path {
-                            repeats += 1;
-                        } else {
-                            repeats = 0;
-                        }
-                    }
-                },
-                Err(_error) => return Ok(false),
-            }
-
-            if repeats > repeat_limit {
-                info!("Detected Infinite Loop via repeats");
-                return Ok(true);
-            }
-
-            if iterations > limit {
-                return Ok(true);
-            }
-            map = progress_guard(map, true).expect("guard to progress");
-            iterations += 1;
-        }
-    }
-}
-
-// fn test_add_obstruction(
-//     mut map: Map,
-//     guard_position: Position,
-//     guard: Guard,
-// ) -> Result<bool, Day6Error> {
-//     info!("Test adding obstruction ahead");
-
-//     match guard.direction {
-//         Direction::North => {
-//             if guard_position.y != 0 {
-//                 if map.grid[guard_position.y - 1][guard_position.x] == Entity::Empty {
-//                     map.grid[guard_position.y - 1][guard_position.x] = Entity::Obstruction;
-//                 }
-//             }
-//         }
-//         Direction::East => {
-//             if guard_position.x != map.get_width() - 1 {
-//                 if map.grid[guard_position.y][guard_position.x + 1] == Entity::Empty {
-//                     map.grid[guard_position.y][guard_position.x + 1] = Entity::Obstruction;
-//                 }
-//             }
-//         }
-//         Direction::South => {
-//             if guard_position.y != map.get_height() - 1 {
-//                 if map.grid[guard_position.y + 1][guard_position.x] == Entity::Empty {
-//                     map.grid[guard_position.y + 1][guard_position.x] = Entity::Obstruction;
-//                 }
-//             }
-//         }
-//         Direction::West => {
-//             if guard_position.x != 0 {
-//                 if map.grid[guard_position.y][guard_position.x - 1] == Entity::Empty {
-//                     map.grid[guard_position.y][guard_position.x - 1] = Entity::Obstruction;
-//                 }
-//             }
-//         }
-//     }
-
-//     Ok(simulate_infinite_patrol(map, 3000))
-// }
-
-fn calculate_unique_cells(map: &Map, entity_type: Entity) -> i32 {
-    let mut unique_cells_count = 0;
-
-    for row in map.get_grid() {
-        for cell in row {
-            if cell == &entity_type {
-                unique_cells_count += 1;
-            }
-        }
-    }
-
-    unique_cells_count
-}
-
 #[derive(Debug, PartialEq)]
 enum Day6Error {
     NoGuard,
@@ -517,6 +142,142 @@ impl error::Error for Day6Error {
             Day6Error::GoingOutOfBounds => None,
         }
     }
+}
+
+fn parse_file(file_path: Utf8PathBuf) -> Map {
+    info!("Parsing File");
+    let content = read_file(file_path);
+
+    let mut map: Map = Map::new(vec![]);
+    let rows = content.split("\n");
+    for (y, row) in rows.enumerate() {
+        let mut parsed_row: Vec<Entity> = vec![];
+        for (x, cell) in row.to_owned().chars().enumerate() {
+            match cell {
+                '.' => parsed_row.push(Entity::Empty),
+                '#' => parsed_row.push(Entity::Obstruction),
+                '^' => parsed_row.push(Entity::Guard(Guard {
+                    direction: Direction::North,
+                    x,
+                    y,
+                })),
+                '>' => parsed_row.push(Entity::Guard(Guard {
+                    direction: Direction::East,
+                    x,
+                    y,
+                })),
+                'V' => parsed_row.push(Entity::Guard(Guard {
+                    direction: Direction::South,
+                    x,
+                    y,
+                })),
+                '<' => parsed_row.push(Entity::Guard(Guard {
+                    direction: Direction::West,
+                    x,
+                    y,
+                })),
+                _ => panic!("Unidentified cell content in file: '{}'", cell),
+            }
+        }
+        map.grid.push(parsed_row);
+    }
+
+    info!("Parsed Map:\n{}", map);
+
+    map
+}
+
+fn find_guard(map: &Map) -> Option<Guard> {
+    for (y, row) in map.grid.iter().enumerate() {
+        for (x, cell) in row.iter().enumerate() {
+            if let Entity::Guard(guard) = cell {
+                trace!("Found guard {:?}", guard);
+                return Some(guard.clone());
+            }
+        }
+    }
+    None
+}
+
+fn check_moving_out_of_bounds(map_width: usize, map_height: usize, guard: &Guard) -> bool {
+    if guard.direction == Direction::North && guard.y == 0 {
+        return true;
+    }
+    if guard.direction == Direction::East && guard.x == map_width - 1 {
+        return true;
+    }
+    if guard.direction == Direction::South && guard.y == map_height - 1 {
+        return true;
+    }
+    if guard.direction == Direction::West && guard.x == 0 {
+        return true;
+    }
+
+    false
+}
+
+fn move_guard(mut map: Map, mut guard: &mut Guard) -> (Map, Guard) {
+    // Remove existing guard spot from map
+    map.grid[guard.y][guard.x] = Entity::Empty;
+
+    if check_moving_out_of_bounds(map.get_width(), map.get_height(), &guard) {
+        trace!("Moving Guard out of bounds");
+        // There may be a better way to represent this, but this should be sufficient for this use case I think
+        guard.x = usize::MAX;
+        guard.y = usize::MAX;
+        return (map, guard.to_owned());
+    }
+
+    // check next cell to determine if turn required, otherwise move forward
+    match guard.direction {
+        Direction::North => {
+            if map.grid[guard.y - 1][guard.x] == Entity::Obstruction {
+                guard.direction = Direction::East;
+            } else {
+                guard.y -= 1;
+            }
+        }
+        Direction::East => {
+            if map.grid[guard.y][guard.x + 1] == Entity::Obstruction {
+                guard.direction = Direction::South;
+            } else {
+                guard.x += 1;
+            }
+        }
+        Direction::South => {
+            if map.grid[guard.y + 1][guard.x] == Entity::Obstruction {
+                guard.direction = Direction::West;
+            } else {
+                guard.y += 1;
+            }
+        }
+        Direction::West => {
+            if map.grid[guard.y][guard.x - 1] == Entity::Obstruction {
+                guard.direction = Direction::North;
+            } else {
+                guard.x -= 1;
+            }
+        }
+    }
+    map.grid[guard.y][guard.x] = Entity::Guard(guard.to_owned());
+
+    (map, guard.to_owned())
+}
+
+fn simulate_patrol(mut map: Map, guard: Guard) {}
+
+fn calculate_unique_cells(map: &Map, entity_type: Entity) -> i32 {
+    let mut unique_cells_count = 0;
+
+    for row in map.get_grid() {
+        for cell in row {
+            if cell == &entity_type {
+                unique_cells_count += 1;
+            }
+        }
+    }
+
+    unique_cells_count
 }
 
 #[cfg(test)]
@@ -552,6 +313,8 @@ mod tests {
         map.grid[6][1] = Entity::Obstruction;
         map.grid[6][4] = Entity::Guard(Guard {
             direction: Direction::North,
+            x: 4,
+            y: 6,
         });
         map.grid[7][8] = Entity::Obstruction;
         map.grid[8][0] = Entity::Obstruction;
@@ -563,105 +326,113 @@ mod tests {
     }
 
     #[test]
-    fn test_progress_guard() {
+    fn test_move_guard() {
         test_init();
-        let mut map = create_empty_map();
-        map.grid[5][4] = Entity::Guard(Guard {
+        let mut original_guard = Guard {
             direction: Direction::North,
-        });
+            x: 4,
+            y: 5,
+        };
+        let mut map: Map = create_empty_map();
+        map.grid[5][4] = Entity::Guard(original_guard.clone());
+        debug!("Original Map: \n{}", map);
 
+        let final_guard = Guard {
+            direction: Direction::North,
+            x: 4,
+            y: 4,
+        };
         let mut map_final = create_empty_map();
-        map_final.grid[4][4] = Entity::Guard(Guard {
-            direction: Direction::North,
-        });
-        map_final.grid[5][4] = Entity::Path;
+        map_final.grid[4][4] = Entity::Guard(final_guard.clone());
+        debug!("Expected Map: \n{}", map_final);
 
+        let (returned_map, _returned_guard) = move_guard(map, &mut original_guard);
+        debug!("Returned Map: \n{}", returned_map);
         assert_eq!(
-            map_final,
-            progress_guard(map, true).expect("to receive map back"),
+            map_final, returned_map,
             "Expect the guard to be one space to the north"
         );
     }
 
-    #[test]
-    fn test_progress_guard_no_guard() {
-        test_init();
-        let map = create_empty_map();
+    // #[test]
+    // fn test_progress_guard_no_guard() {
+    //     test_init();
+    //     let map = create_empty_map();
 
-        assert_eq!(
-            Err(Day6Error::NoGuard),
-            progress_guard(map, true),
-            "Expect a Day6Error:NoGuard to be returned"
-        );
-    }
+    //     assert_eq!(
+    //         Err(Day6Error::NoGuard),
+    //         progress_guard(map, true),
+    //         "Expect a Day6Error:NoGuard to be returned"
+    //     );
+    // }
 
-    #[test]
-    fn test_progress_guard_out_of_bounds() {
-        test_init();
-        let mut map = create_empty_map();
-        map.grid[0][4] = Entity::Guard(Guard {
-            direction: Direction::North,
-        });
+    // #[test]
+    // fn test_progress_guard_out_of_bounds() {
+    //     test_init();
+    //     let mut map = create_empty_map();
+    //     map.grid[0][4] = Entity::Guard(Guard {
+    //         direction: Direction::North,
+    //     });
 
-        let mut map_final = create_empty_map();
+    //     let mut map_final = create_empty_map();
 
-        map_final.grid[0][4] = Entity::Path;
+    //     map_final.grid[0][4] = Entity::Path;
 
-        assert_eq!(
-            map_final,
-            progress_guard(map, true).expect("to receive map back"),
-            "Expected an empty map to be returned"
-        );
-    }
+    //     assert_eq!(
+    //         map_final,
+    //         progress_guard(map, true).expect("to receive map back"),
+    //         "Expected an empty map to be returned"
+    //     );
+    // }
 
-    #[test]
-    fn test_progress_guard_obstacle() {
-        test_init();
-        let mut map = create_empty_map();
-        map.grid[4][4] = Entity::Obstruction;
-        map.grid[5][4] = Entity::Guard(Guard {
-            direction: Direction::North,
-        });
+    // #[test]
+    // fn test_progress_guard_obstacle() {
+    //     test_init();
+    //     let mut map = create_empty_map();
+    //     map.grid[4][4] = Entity::Obstruction;
+    //     map.grid[5][4] = Entity::Guard(Guard {
+    //         direction: Direction::North,
+    //     });
 
-        let mut map_final = create_empty_map();
-        map_final.grid[4][4] = Entity::Obstruction;
-        map_final.grid[5][4] = Entity::Guard(Guard {
-            direction: Direction::East,
-        });
+    //     let mut map_final = create_empty_map();
+    //     map_final.grid[4][4] = Entity::Obstruction;
+    //     map_final.grid[5][4] = Entity::Guard(Guard {
+    //         direction: Direction::East,
+    //     });
 
-        debug!("Starting Map:\n{}", map);
-        assert_eq!(
-            map_final,
-            progress_guard(map, true).expect("to receive map back"),
-            "Expect the guard to turn to the east"
-        );
-    }
+    //     debug!("Starting Map:\n{}", map);
+    //     assert_eq!(
+    //         map_final,
+    //         progress_guard(map, true).expect("to receive map back"),
+    //         "Expect the guard to turn to the east"
+    //     );
+    // }
 
-    #[test]
-    fn test_simulate_patrol_sample_data() {
-        test_init();
+    // #[test]
+    // fn test_simulate_patrol_sample_data() {
+    //     test_init();
 
-        assert_eq!(
-            41,
-            simulate_patrol(
-                Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
-                false
-            )
-            .expect("Simulation to work")
-        )
-    }
+    //     assert_eq!(
+    //         41,
+    //         simulate_patrol(
+    //             Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
+    //             false
+    //         )
+    //         .expect("Simulation to work")
+    //     )
+    // }
 
-    #[test]
-    fn test_simulate_patrol_add_obstructions_sample_data() {
-        test_init();
+    // #[test]
+    // fn test_simulate_patrol_add_obstructions_sample_data() {
+    //     test_init();
 
-        assert_eq!(
-            6,
-            simulate_patrol(
-                Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
-                true
-            )
-            .expect("Simulation to work")
-        )
-    }
+    //     assert_eq!(
+    //         6,
+    //         simulate_patrol(
+    //             Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
+    //             true
+    //         )
+    //         .expect("Simulation to work")
+    //     )
+    // }
 }
