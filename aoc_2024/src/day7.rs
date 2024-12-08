@@ -12,16 +12,19 @@ pub enum Day7Commands {
         /// Input File Path
         #[arg(short, long)]
         path: Utf8PathBuf,
+        /// Whether to calculate with concatenation operators
+        #[arg(short, long, default_value_t = false)]
+        concatenate: bool,
     },
 }
 
 pub fn day7_cli_command_processing(command: &Day7Commands) {
     match command {
-        Day7Commands::Calculate { path } => {
+        Day7Commands::Calculate { path, concatenate } => {
             info!("Command received to calculate total sum from valid equations");
             println!(
                 "Total Sum from valid equations: {}",
-                calculate_total_equations_result(path.clone())
+                calculate_total_equations_result(path.clone(), concatenate.to_owned())
             );
         }
     }
@@ -32,6 +35,7 @@ type Equation = (i64, Vec<i64>);
 enum Operator {
     Multiply,
     Add,
+    Concatenation,
 }
 
 impl Display for Operator {
@@ -39,6 +43,7 @@ impl Display for Operator {
         match self {
             Operator::Add => write!(f, "+"),
             Operator::Multiply => write!(f, "*"),
+            Operator::Concatenation => write!(f, "||"),
         }
     }
 }
@@ -50,7 +55,6 @@ fn parse_file(file_path: Utf8PathBuf) -> Vec<Equation> {
     let equation_strings = content.split("\n");
     for equation in equation_strings {
         let parts: Vec<&str> = equation.split(": ").collect();
-        info!("total: {}", parts[0]);
         let total = parts[0].parse::<i64>().expect("To be a valid number");
         let values: Vec<i64> = parts[1]
             .split(" ")
@@ -78,6 +82,11 @@ fn test_equation((total, values): &Equation, operators: &Vec<Operator>) -> bool 
             Operator::Multiply => {
                 calculated_total = calculated_total * value;
             }
+            Operator::Concatenation => {
+                calculated_total = (calculated_total.to_string() + &value.to_string())
+                    .parse::<i64>()
+                    .expect("to be a number");
+            }
         }
         operator_index += 1;
     }
@@ -93,37 +102,48 @@ fn recursive_operator_test(
     equation: &Equation,
     adjusting_index: usize,
     operators: &mut Vec<Operator>,
+    concat: bool,
 ) -> bool {
     if adjusting_index == operators.len() - 1 {
         operators[adjusting_index] = Operator::Add;
         if test_equation(equation, &operators) {
             return true;
-        } else {
-            operators[adjusting_index] = Operator::Multiply;
-            return test_equation(equation, &operators);
         }
+        if concat {
+            operators[adjusting_index] = Operator::Concatenation;
+            if test_equation(equation, &operators) {
+                return true;
+            }
+        }
+        operators[adjusting_index] = Operator::Multiply;
+        return test_equation(equation, &operators);
     } else {
         operators[adjusting_index] = Operator::Add;
-        if recursive_operator_test(equation, adjusting_index + 1, operators) {
+        if recursive_operator_test(equation, adjusting_index + 1, operators, concat) {
             return true;
-        } else {
-            operators[adjusting_index] = Operator::Multiply;
-            return recursive_operator_test(equation, adjusting_index + 1, operators);
         }
+        if concat {
+            operators[adjusting_index] = Operator::Concatenation;
+            if recursive_operator_test(equation, adjusting_index + 1, operators, concat) {
+                return true;
+            }
+        }
+        operators[adjusting_index] = Operator::Multiply;
+        return recursive_operator_test(equation, adjusting_index + 1, operators, concat);
     }
 }
 
-fn try_equation_operators(equation: &Equation) -> bool {
+fn try_equation_operators(equation: &Equation, concat: bool) -> bool {
     let mut operators = vec![Operator::Add; equation.1.len() - 1];
-    return recursive_operator_test(equation, 0, &mut operators);
+    return recursive_operator_test(equation, 0, &mut operators, concat);
 }
 
-fn calculate_total_equations_result(file_path: Utf8PathBuf) -> i64 {
+fn calculate_total_equations_result(file_path: Utf8PathBuf, concat: bool) -> i64 {
     let equations: Vec<Equation> = parse_file(file_path);
     let mut total = 0;
 
     for equation in equations {
-        if try_equation_operators(&equation) {
+        if try_equation_operators(&equation, concat) {
             total += equation.0;
         }
     }
@@ -189,13 +209,16 @@ mod tests {
     #[test]
     fn test_equation_operators() {
         test_init();
-        assert!(try_equation_operators(&(292, vec![11, 6, 16, 20])))
+        assert!(try_equation_operators(&(292, vec![11, 6, 16, 20]), false))
     }
 
     #[test]
     fn test_unsolveable_equation() {
         test_init();
-        assert_eq!(false, try_equation_operators(&(161011, vec![16, 10, 13])))
+        assert_eq!(
+            false,
+            try_equation_operators(&(161011, vec![16, 10, 13]), false)
+        )
     }
 
     #[test]
@@ -203,9 +226,22 @@ mod tests {
         test_init();
         assert_eq!(
             3749,
-            calculate_total_equations_result(Utf8PathBuf::from(
-                "./src/puzzle_inputs/day7_sample.txt"
-            ))
+            calculate_total_equations_result(
+                Utf8PathBuf::from("./src/puzzle_inputs/day7_sample.txt"),
+                false
+            )
+        )
+    }
+
+    #[test]
+    fn test_calculate_total_equations_from_sample_with_concatenation() {
+        test_init();
+        assert_eq!(
+            11387,
+            calculate_total_equations_result(
+                Utf8PathBuf::from("./src/puzzle_inputs/day7_sample.txt"),
+                true
+            )
         )
     }
 }
