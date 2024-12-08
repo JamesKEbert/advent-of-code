@@ -18,6 +18,7 @@ pub mod day3;
 pub mod day4;
 pub mod day5;
 pub mod day6;
+pub mod day7;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
