@@ -3,7 +3,6 @@ use camino::Utf8PathBuf;
 use clap::Subcommand;
 use std::{
     collections::HashMap,
-    error::{self},
     fmt::{self, Debug, Display},
     vec,
 };
@@ -27,7 +26,7 @@ pub fn day6_cli_command_processing(command: &Day6Commands) {
     match command {
         Day6Commands::Calculate {
             path,
-            valid_obstructions,
+            valid_obstructions: _,
         } => {
             info!("Command received to calculate total distinct cells for guard");
             println!(
@@ -84,10 +83,6 @@ impl Map {
         Map { grid }
     }
 
-    pub fn get_grid(&self) -> &Vec<Vec<Entity>> {
-        &self.grid
-    }
-
     pub fn get_width(&self) -> usize {
         self.grid[0].len()
     }
@@ -109,7 +104,7 @@ impl Display for Map {
     }
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 struct Position {
     x: usize,
     y: usize,
@@ -121,29 +116,29 @@ impl Display for Position {
     }
 }
 
-#[derive(Debug, PartialEq)]
-enum Day6Error {
-    NoGuard,
-    GoingOutOfBounds,
-}
+// #[derive(Debug, PartialEq)]
+// enum Day6Error {
+//     NoGuard,
+//     GoingOutOfBounds,
+// }
 
-impl fmt::Display for Day6Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Day6Error::NoGuard => write!(f, "no guard found in map"),
-            Day6Error::GoingOutOfBounds => write!(f, "guard going out of bounds"),
-        }
-    }
-}
+// impl fmt::Display for Day6Error {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         match *self {
+//             Day6Error::NoGuard => write!(f, "no guard found in map"),
+//             Day6Error::GoingOutOfBounds => write!(f, "guard going out of bounds"),
+//         }
+//     }
+// }
 
-impl error::Error for Day6Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match *self {
-            Day6Error::NoGuard => None,
-            Day6Error::GoingOutOfBounds => None,
-        }
-    }
-}
+// impl error::Error for Day6Error {
+//     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+//         match *self {
+//             Day6Error::NoGuard => None,
+//             Day6Error::GoingOutOfBounds => None,
+//         }
+//     }
+// }
 
 fn parse_file(file_path: Utf8PathBuf) -> Map {
     info!("Parsing File");
@@ -189,8 +184,8 @@ fn parse_file(file_path: Utf8PathBuf) -> Map {
 }
 
 fn find_guard(map: &Map) -> Option<Guard> {
-    for (y, row) in map.grid.iter().enumerate() {
-        for (x, cell) in row.iter().enumerate() {
+    for row in &map.grid {
+        for cell in row {
             if let Entity::Guard(guard) = cell {
                 trace!("Found guard {:?}", guard);
                 return Some(guard.clone());
@@ -217,7 +212,7 @@ fn check_moving_out_of_bounds(map_width: usize, map_height: usize, guard: &Guard
     false
 }
 
-fn move_guard(mut map: Map, mut guard: &mut Guard) -> (Map, Guard) {
+fn move_guard(mut map: Map, guard: &mut Guard) -> (Map, Guard) {
     // Remove existing guard spot from map
     map.grid[guard.y][guard.x] = Entity::Empty;
 
@@ -265,8 +260,8 @@ fn move_guard(mut map: Map, mut guard: &mut Guard) -> (Map, Guard) {
     (map, guard.to_owned())
 }
 
-fn simulate_patrol(mut map: Map, guard: &mut Guard, limit: i32) -> Vec<Guard> {
-    let mut guard_positions = vec![];
+fn simulate_patrol(mut map: Map, guard: &mut Guard, limit: i32) -> HashMap<Position, Guard> {
+    let mut guard_positions: HashMap<Position, Guard> = HashMap::new();
 
     let mut iteration = 0;
     while iteration < limit {
@@ -275,8 +270,15 @@ fn simulate_patrol(mut map: Map, guard: &mut Guard, limit: i32) -> Vec<Guard> {
             break;
         }
 
-        guard_positions.push(guard.clone());
+        guard_positions.insert(
+            Position {
+                x: guard.x,
+                y: guard.y,
+            },
+            guard.clone(),
+        );
         (map, *guard) = move_guard(map, guard);
+        iteration += 1;
     }
 
     guard_positions
@@ -287,19 +289,10 @@ fn count_distinct_cells(file_path: Utf8PathBuf, simulation_limit: i32) -> usize 
     let mut guard = find_guard(&map).expect("guard to exist in map");
     let guard_positions = simulate_patrol(map, &mut guard, simulation_limit);
 
-    let mut unique_positions: HashMap<Position, Guard> = HashMap::new();
-    for guard in guard_positions {
-        unique_positions.insert(
-            Position {
-                x: guard.x,
-                y: guard.y,
-            },
-            guard,
-        );
-    }
-
-    unique_positions.len()
+    guard_positions.len()
 }
+
+// fn test_obstructions() -> usize {}
 
 #[cfg(test)]
 mod tests {
@@ -387,24 +380,34 @@ mod tests {
         map.grid[2][4] = Entity::Guard(original_guard.clone());
         debug!("Original Map: \n{}", map);
 
+        let mut guard_positions: HashMap<Position, Guard> = HashMap::new();
+        guard_positions.insert(
+            Position { x: 4, y: 2 },
+            Guard {
+                x: 4,
+                y: 2,
+                direction: Direction::North,
+            },
+        );
+        guard_positions.insert(
+            Position { x: 4, y: 1 },
+            Guard {
+                x: 4,
+                y: 1,
+                direction: Direction::North,
+            },
+        );
+        guard_positions.insert(
+            Position { x: 4, y: 0 },
+            Guard {
+                x: 4,
+                y: 0,
+                direction: Direction::North,
+            },
+        );
+
         assert_eq!(
-            vec![
-                Guard {
-                    x: 4,
-                    y: 2,
-                    direction: Direction::North
-                },
-                Guard {
-                    x: 4,
-                    y: 1,
-                    direction: Direction::North
-                },
-                Guard {
-                    x: 4,
-                    y: 0,
-                    direction: Direction::North
-                },
-            ],
+            guard_positions,
             simulate_patrol(map, &mut original_guard, 100),
             "Expected a vector of guard positions"
         );
