@@ -385,55 +385,59 @@ fn simulate_infinite_patrol(
 
     let mut iterations = 0;
     let mut repeats = 0;
-    while find_guard(&map).is_some() {
-        let (guard_position, guard) = find_guard(&map).ok_or(Day6Error::NoGuard)?;
+    loop {
+        let guard_result = find_guard(&map);
+        if guard_result.is_none() {
+            return Ok(false);
+        } else {
+            let (guard_position, guard) = guard_result.expect("to be valid data");
 
-        match get_new_direction(&map, &guard_position, &guard) {
-            Ok((new_direction, _turned)) => match new_direction {
-                Direction::North => {
-                    if map.grid[guard_position.y - 1][guard_position.x] == Entity::Path {
-                        repeats += 1;
-                    } else {
-                        repeats = 0;
+            match get_new_direction(&map, &guard_position, &guard) {
+                Ok((new_direction, _turned)) => match new_direction {
+                    Direction::North => {
+                        if map.grid[guard_position.y - 1][guard_position.x] == Entity::Path {
+                            repeats += 1;
+                        } else {
+                            repeats = 0;
+                        }
                     }
-                }
-                Direction::East => {
-                    if map.grid[guard_position.y][guard_position.x + 1] == Entity::Path {
-                        repeats += 1;
-                    } else {
-                        repeats = 0;
+                    Direction::East => {
+                        if map.grid[guard_position.y][guard_position.x + 1] == Entity::Path {
+                            repeats += 1;
+                        } else {
+                            repeats = 0;
+                        }
                     }
-                }
-                Direction::South => {
-                    if map.grid[guard_position.y + 1][guard_position.x] == Entity::Path {
-                        repeats += 1;
-                    } else {
-                        repeats = 0;
+                    Direction::South => {
+                        if map.grid[guard_position.y + 1][guard_position.x] == Entity::Path {
+                            repeats += 1;
+                        } else {
+                            repeats = 0;
+                        }
                     }
-                }
-                Direction::West => {
-                    if map.grid[guard_position.y][guard_position.x - 1] == Entity::Path {
-                        repeats += 1;
-                    } else {
-                        repeats = 0;
+                    Direction::West => {
+                        if map.grid[guard_position.y][guard_position.x - 1] == Entity::Path {
+                            repeats += 1;
+                        } else {
+                            repeats = 0;
+                        }
                     }
-                }
-            },
-            Err(_error) => return Ok(false),
-        }
+                },
+                Err(_error) => return Ok(false),
+            }
 
-        if repeats > repeat_limit {
-            info!("Detected Infinite Loop via repeats");
-            return Ok(true);
-        }
+            if repeats > repeat_limit {
+                info!("Detected Infinite Loop via repeats");
+                return Ok(true);
+            }
 
-        if iterations > limit {
-            return Ok(true);
+            if iterations > limit {
+                return Ok(true);
+            }
+            map = progress_guard(map, true).expect("guard to progress");
+            iterations += 1;
         }
-        map = progress_guard(map, true).expect("guard to progress");
-        iterations += 1;
     }
-    Ok(false)
 }
 
 // fn test_add_obstruction(
