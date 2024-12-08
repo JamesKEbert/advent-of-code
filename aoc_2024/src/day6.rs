@@ -146,6 +146,7 @@ enum Day6Error {
     // NoGuard,
     // GoingOutOfBounds,
     ExceededLimit,
+    InfiniteLoop,
 }
 
 impl fmt::Display for Day6Error {
@@ -155,6 +156,9 @@ impl fmt::Display for Day6Error {
             // Day6Error::GoingOutOfBounds => write!(f, "guard going out of bounds"),
             Day6Error::ExceededLimit => {
                 write!(f, "guard simulation exceeded simulation iteration limit")
+            }
+            Day6Error::InfiniteLoop => {
+                write!(f, "guard simulation is in an infinite loop")
             }
         }
     }
@@ -166,6 +170,7 @@ impl error::Error for Day6Error {
             // Day6Error::NoGuard => None,
             // Day6Error::GoingOutOfBounds => None,
             Day6Error::ExceededLimit => None,
+            Day6Error::InfiniteLoop => None,
         }
     }
 }
@@ -294,6 +299,7 @@ fn simulate_patrol(
     mut map: Map,
     guard: &mut Guard,
     limit: i32,
+    detect_loop: bool,
 ) -> Result<HashMap<Guard, Guard>, Day6Error> {
     trace!("Simulating Patrol");
     let mut guard_positions: HashMap<Guard, Guard> = HashMap::new();
@@ -309,6 +315,12 @@ fn simulate_patrol(
             break;
         }
 
+        if detect_loop {
+            if guard_positions.contains_key(&guard.clone()) {
+                trace!("Detected Loop!");
+                return Err(Day6Error::InfiniteLoop);
+            }
+        }
         guard_positions.insert(guard.clone(), guard.clone());
         (map, *guard) = move_guard(map, guard);
         iteration += 1;
@@ -320,7 +332,7 @@ fn simulate_patrol(
 fn count_distinct_cells(file_path: Utf8PathBuf, simulation_limit: i32) -> usize {
     let map = parse_file(file_path);
     let mut guard = find_guard(&map).expect("guard to exist in map");
-    let guard_positions = simulate_patrol(map, &mut guard, simulation_limit)
+    let guard_positions = simulate_patrol(map, &mut guard, simulation_limit, false)
         .expect("expected map to be simulated correctly");
 
     let mut unique_positions: HashMap<Position, Guard> = HashMap::new();
@@ -340,7 +352,7 @@ fn test_obstructions(file_path: Utf8PathBuf, simulation_limit: i32) -> usize {
     let map = parse_file(file_path);
     let mut guard = find_guard(&map).expect("guard to exist in map");
     let obstruction_guard = guard.clone();
-    let guard_positions = simulate_patrol(map.clone(), &mut guard, simulation_limit)
+    let guard_positions = simulate_patrol(map.clone(), &mut guard, simulation_limit, false)
         .expect("expected map to be simulated correctly");
 
     // Pretty print the guard's path
@@ -381,6 +393,7 @@ fn test_obstructions(file_path: Utf8PathBuf, simulation_limit: i32) -> usize {
                     test_map.clone(),
                     &mut obstruction_guard.clone(),
                     simulation_limit,
+                    true,
                 )
                 .is_err()
                 {
@@ -507,7 +520,8 @@ mod tests {
 
         assert_eq!(
             guard_positions,
-            simulate_patrol(map, &mut original_guard, 100).expect("to be simulated correctly"),
+            simulate_patrol(map, &mut original_guard, 100, false)
+                .expect("to be simulated correctly"),
             "Expected a vector of guard positions"
         );
     }
@@ -538,3 +552,5 @@ mod tests {
         )
     }
 }
+
+// 1621
