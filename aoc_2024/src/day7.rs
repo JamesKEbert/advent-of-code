@@ -1,10 +1,33 @@
 use std::fmt::Display;
 
 use camino::Utf8PathBuf;
+use clap::Subcommand;
 
 use crate::read_file;
 
-type Equation = (i32, Vec<i32>);
+#[derive(Subcommand, Debug)]
+pub enum Day7Commands {
+    /// Calculates Total of valid equations from file
+    Calculate {
+        /// Input File Path
+        #[arg(short, long)]
+        path: Utf8PathBuf,
+    },
+}
+
+pub fn day7_cli_command_processing(command: &Day7Commands) {
+    match command {
+        Day7Commands::Calculate { path } => {
+            info!("Command received to calculate total sum from valid equations");
+            println!(
+                "Total Sum from valid equations: {}",
+                calculate_total_equations_result(path.clone())
+            );
+        }
+    }
+}
+
+type Equation = (i64, Vec<i64>);
 #[derive(Clone, Debug)]
 enum Operator {
     Multiply,
@@ -27,10 +50,11 @@ fn parse_file(file_path: Utf8PathBuf) -> Vec<Equation> {
     let equation_strings = content.split("\n");
     for equation in equation_strings {
         let parts: Vec<&str> = equation.split(": ").collect();
-        let total = parts[0].parse::<i32>().expect("To be a valid number");
-        let values: Vec<i32> = parts[1]
+        info!("total: {}", parts[0]);
+        let total = parts[0].parse::<i64>().expect("To be a valid number");
+        let values: Vec<i64> = parts[1]
             .split(" ")
-            .map(|value| value.parse::<i32>().expect("To be a valid number"))
+            .map(|value| value.parse::<i64>().expect("To be a valid number"))
             .collect();
         equations.push((total, values));
     }
@@ -68,7 +92,7 @@ fn test_equation((total, values): &Equation, operators: &Vec<Operator>) -> bool 
 fn recursive_operator_test(
     equation: &Equation,
     adjusting_index: usize,
-    mut operators: &mut Vec<Operator>,
+    operators: &mut Vec<Operator>,
 ) -> bool {
     if adjusting_index == operators.len() - 1 {
         operators[adjusting_index] = Operator::Add;
@@ -93,6 +117,41 @@ fn try_equation_operators(equation: &Equation) -> bool {
     let mut operators = vec![Operator::Add; equation.1.len() - 1];
     return recursive_operator_test(equation, 0, &mut operators);
 }
+
+fn calculate_total_equations_result(file_path: Utf8PathBuf) -> i64 {
+    let equations: Vec<Equation> = parse_file(file_path);
+    let mut total = 0;
+
+    for equation in equations {
+        if try_equation_operators(&equation) {
+            total += equation.0;
+        }
+    }
+    total
+}
+
+// #[derive(Debug, PartialEq)]
+// enum Day7Error {
+//     Unsolveable,
+// }
+
+// impl fmt::Display for Day7Error {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         match *self {
+//             Day7Error::Unsolveable => {
+//                 write!(f, "equation is unsolveable")
+//             }
+//         }
+//     }
+// }
+
+// impl error::Error for Day7Error {
+//     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+//         match *self {
+//             Day7Error::Unsolveable => None,
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -137,5 +196,16 @@ mod tests {
     fn test_unsolveable_equation() {
         test_init();
         assert_eq!(false, try_equation_operators(&(161011, vec![16, 10, 13])))
+    }
+
+    #[test]
+    fn test_calculate_total_equations_from_sample() {
+        test_init();
+        assert_eq!(
+            3749,
+            calculate_total_equations_result(Utf8PathBuf::from(
+                "./src/puzzle_inputs/day7_sample.txt"
+            ))
+        )
     }
 }
