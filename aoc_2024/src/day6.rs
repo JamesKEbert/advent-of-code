@@ -57,6 +57,7 @@ enum Entity {
     Obstruction,
     Guard(Guard),
     Path(Path),
+    TempObstruction,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -95,6 +96,7 @@ impl Display for Entity {
                 Path::Vertical => write!(f, "|"),
                 Path::Horizontal => write!(f, "-"),
             },
+            Entity::TempObstruction => write!(f, "O"),
         }
     }
 }
@@ -371,38 +373,60 @@ fn test_obstructions(file_path: Utf8PathBuf, simulation_limit: i32) -> usize {
     }
     info!("Patrol Path:\n{}", patrol_path_map);
 
+    let mut unique_positions: HashMap<Position, Guard> = HashMap::new();
+    for (_unique_position, unique_guard) in guard_positions {
+        unique_positions.insert(
+            Position {
+                x: unique_guard.x,
+                y: unique_guard.y,
+            },
+            unique_guard,
+        );
+    }
+
     let mut valid_obstruction_count = 0;
 
     let mut iteration = 0;
-    let total_iterations = guard_positions.len();
-    for (_position, historical_guard) in guard_positions {
+    let total_iterations = unique_positions.len();
+    for (_position, historical_guard) in unique_positions {
         info!(
             "Obstruction Position Check {}/{}",
             iteration, total_iterations
         );
-        if !check_moving_out_of_bounds(map.get_width(), map.get_height(), &historical_guard) {
-            // We cannot place an obstruction where the guard starts
-            if historical_guard.x != obstruction_guard.x
-                && historical_guard.y != obstruction_guard.y
-                && historical_guard.direction != obstruction_guard.direction
+        if !(historical_guard.x == obstruction_guard.x && historical_guard.y == obstruction_guard.y)
+        {
+            let mut test_map = map.clone();
+            test_map.grid[historical_guard.y][historical_guard.x] = Entity::Obstruction;
+
+            let mut display_test_map = map.clone();
+            display_test_map.grid[historical_guard.y][historical_guard.x] = Entity::TempObstruction;
+            trace!("Testing map:\n{}", display_test_map);
+
+            if simulate_patrol(
+                test_map.clone(),
+                &mut obstruction_guard.clone(),
+                simulation_limit,
+                true,
+            )
+            .is_err()
             {
-                let mut test_map = map.clone();
-                test_map.grid[historical_guard.y][historical_guard.x] = Entity::Obstruction;
-                trace!("Testing map:\n{}", test_map);
-                if simulate_patrol(
-                    test_map.clone(),
-                    &mut obstruction_guard.clone(),
-                    simulation_limit,
-                    true,
-                )
-                .is_err()
-                {
-                    debug!("Valid Obstruction, map:\n{}", test_map);
-                    valid_obstruction_count += 1;
-                } else {
-                    debug!("Invalid Obstruction");
-                }
+                debug!("Valid Obstruction");
+                valid_obstruction_count += 1;
+            } else {
+                debug!("Invalid Obstruction");
             }
+        } else {
+            info!(
+                "Filtering out starting guard location {}, present coordinates {}",
+                Position {
+                    x: obstruction_guard.x,
+                    y: obstruction_guard.y
+                },
+                Position {
+                    x: historical_guard.x,
+                    y: historical_guard.y
+                },
+            );
         }
         iteration += 1;
     }
@@ -547,10 +571,8 @@ mod tests {
             6,
             test_obstructions(
                 Utf8PathBuf::from("./src/puzzle_inputs/day6_sample.txt"),
-                100
+                1000
             )
         )
     }
 }
-
-// 1621
