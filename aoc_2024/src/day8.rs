@@ -1,10 +1,32 @@
 use std::collections::{HashMap, HashSet};
 
 use camino::Utf8PathBuf;
+use clap::Subcommand;
 
 use crate::read_file;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Subcommand, Debug)]
+pub enum Day8Commands {
+    /// Generates and totals unique antinodes
+    GenerateAntinodes {
+        /// Input File Path
+        #[arg(short, long)]
+        path: Utf8PathBuf,
+    },
+}
+
+pub fn day8_cli_command_processing(command: &Day8Commands) {
+    match command {
+        Day8Commands::GenerateAntinodes { path } => {
+            info!("Command received to generate and total antinodes");
+            println!(
+                "Total unique antinodes: {}",
+                calculate_all_antinodes(path.clone())
+            );
+        }
+    }
+}
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct Position {
     x: i32,
     y: i32,
@@ -53,7 +75,7 @@ fn calculate_antinodes(antenna1: Position, antenna2: Position) -> (Position, Pos
     let antinode2: Position;
     // antenna1 is top left or they are in a line
     if antenna1.y <= antenna2.y && antenna1.x <= antenna2.x {
-        debug!("Antenna1 is top left");
+        trace!("Antenna1 is top left");
         antinode1 = Position {
             x: antenna1.x - width,
             y: antenna1.y - height,
@@ -67,7 +89,7 @@ fn calculate_antinodes(antenna1: Position, antenna2: Position) -> (Position, Pos
     }
     // antenna1 is top right
     else if antenna1.y < antenna2.y && antenna1.x > antenna2.x {
-        debug!("Antenna1 is top right");
+        trace!("Antenna1 is top right");
         antinode1 = Position {
             x: antenna1.x + width,
             y: antenna1.y - height,
@@ -81,7 +103,7 @@ fn calculate_antinodes(antenna1: Position, antenna2: Position) -> (Position, Pos
     }
     // antenna1 is bottom left
     else if antenna1.y > antenna2.y && antenna1.x < antenna2.x {
-        debug!("Antenna1 is bottom left");
+        trace!("Antenna1 is bottom left");
         antinode1 = Position {
             x: antenna1.x - width,
             y: antenna1.y + height,
@@ -96,7 +118,7 @@ fn calculate_antinodes(antenna1: Position, antenna2: Position) -> (Position, Pos
     // antenna1 is bottom right
     // if antenna1.y > antenna2.y && antenna1.x > antenna2.x {
     else {
-        debug!("Antenna1 is bottom right");
+        trace!("Antenna1 is bottom right");
         antinode1 = Position {
             x: antenna1.x + width,
             y: antenna1.y + height,
@@ -108,13 +130,55 @@ fn calculate_antinodes(antenna1: Position, antenna2: Position) -> (Position, Pos
             frequency: antenna1.frequency,
         };
     }
+    debug!(
+        "Antinodes are at: {:?},{:?}",
+        (antinode1.x, antinode1.y),
+        (antinode2.x, antinode2.y)
+    );
     (antinode1, antinode2)
 }
 
 fn calculate_all_antinodes(file_path: Utf8PathBuf) -> usize {
     let (map, width, height) = parse_file(file_path);
+    let mut antinode_map: HashSet<Position> = HashSet::new();
 
-    0
+    for hash_set in map {
+        if hash_set.len() > 1 {
+            for antenna1 in &hash_set {
+                for antenna2 in &hash_set {
+                    if antenna1 == antenna2 {
+                        continue;
+                    }
+                    let (antinode1, antinode2) =
+                        calculate_antinodes(antenna1.to_owned(), antenna2.to_owned());
+                    antinode_map.insert(antinode1);
+                    antinode_map.insert(antinode2);
+                }
+            }
+        }
+    }
+
+    antinode_map.retain(|position| {
+        position.x >= 0
+            && position.x < width as i32
+            && position.y >= 0
+            && position.y < height as i32
+    });
+    display_map(&antinode_map, width, height);
+    antinode_map.len() - 1
+}
+
+fn display_map(map: &HashSet<Position>, width: usize, height: usize) -> () {
+    let mut grid: Vec<Vec<char>> = vec![vec!['.'; width]; height];
+    for position in map {
+        grid[position.y as usize][position.x as usize] = '#';
+    }
+    let mut grid_string = "".to_string();
+    for row in grid {
+        let row_string: String = row.iter().collect();
+        grid_string = [grid_string, row_string, "\n".to_string()].concat();
+    }
+    info!("Map: [\n{}\n]", grid_string);
 }
 
 #[cfg(test)]

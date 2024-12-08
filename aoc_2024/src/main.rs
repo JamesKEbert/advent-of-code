@@ -12,6 +12,7 @@ use day4::{day4_cli_command_processing, Day4Commands};
 use day5::{day5_cli_command_processing, Day5Commands};
 use day6::{day6_cli_command_processing, Day6Commands};
 use day7::{day7_cli_command_processing, Day7Commands};
+use day8::{day8_cli_command_processing, Day8Commands};
 
 pub mod day1;
 pub mod day2;
@@ -70,6 +71,11 @@ enum Commands {
         #[command(subcommand)]
         command: Day7Commands,
     },
+    /// Run Day8 methods against input files
+    Day8 {
+        #[command(subcommand)]
+        command: Day8Commands,
+    },
 }
 
 fn main() {
@@ -89,6 +95,7 @@ fn main() {
         Commands::Day5 { command } => day5_cli_command_processing(command),
         Commands::Day6 { command } => day6_cli_command_processing(command),
         Commands::Day7 { command } => day7_cli_command_processing(command),
+        Commands::Day8 { command } => day8_cli_command_processing(command),
     }
 
     println!("Elapsed time: {:.2?}", start.elapsed());
