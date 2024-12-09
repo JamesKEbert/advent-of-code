@@ -78,7 +78,6 @@ fn parse_file(file_path: Utf8PathBuf) -> (Vec<HashSet<Position>>, usize, usize) 
 fn calculate_limitless_antinodes(
     antenna1: &Position,
     antenna2: &Position,
-    harmonize: bool,
     map_width: i32,
     map_height: i32,
 ) -> Vec<Position> {
@@ -238,7 +237,6 @@ fn calculate_all_antinodes(file_path: Utf8PathBuf, harmonize: bool) -> usize {
                         let antinodes = calculate_limitless_antinodes(
                             antenna1,
                             antenna2,
-                            harmonize,
                             width as i32,
                             height as i32,
                         );
