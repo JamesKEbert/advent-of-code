@@ -12,16 +12,19 @@ pub enum Day8Commands {
         /// Input File Path
         #[arg(short, long)]
         path: Utf8PathBuf,
+        /// Whether to account for resonant harmonics
+        #[arg(long, default_value_t = false)]
+        harmonics: bool,
     },
 }
 
 pub fn day8_cli_command_processing(command: &Day8Commands) {
     match command {
-        Day8Commands::GenerateAntinodes { path } => {
+        Day8Commands::GenerateAntinodes { path, harmonics } => {
             info!("Command received to generate and total antinodes");
             println!(
                 "Total unique antinodes: {}",
-                calculate_all_antinodes(path.clone())
+                calculate_all_antinodes(path.clone(), harmonics.to_owned())
             );
         }
     }
@@ -70,6 +73,82 @@ fn parse_file(file_path: Utf8PathBuf) -> (Vec<HashSet<Position>>, usize, usize) 
     }
 
     (map, width, height)
+}
+
+fn calculate_limitless_antinodes(
+    antenna1: &Position,
+    antenna2: &Position,
+    harmonize: bool,
+    map_width: i32,
+    map_height: i32,
+) -> Vec<Position> {
+    let width = (antenna1.x - antenna2.x).abs();
+    let height = (antenna1.y - antenna2.y).abs();
+
+    debug!("Calculated Width: {} Calculated Height: {}", width, height);
+    let mut antinodes = vec![];
+
+    // top left
+    let mut x = antenna1.x;
+    let mut y = antenna1.y;
+    debug!("(x,y) ({},{})", x, y);
+    while x >= 0 && y >= 0 && antenna1.y <= antenna2.y && antenna1.x <= antenna2.x {
+        debug!("Top Left Antinode");
+        antinodes.push(Position {
+            x,
+            y,
+            frequency: antenna1.frequency,
+        });
+        x -= width;
+        y -= height;
+    }
+
+    debug!("(x,y) ({},{})", x, y);
+    // top right
+    x = antenna1.x;
+    y = antenna1.y;
+
+    debug!("(x,y) ({},{})", x, y);
+    while x < map_width && y >= 0 && antenna1.y < antenna2.y && antenna1.x > antenna2.x {
+        debug!("Top Right Antinode");
+        antinodes.push(Position {
+            x,
+            y,
+            frequency: antenna1.frequency,
+        });
+        x += width;
+        y -= height;
+    }
+
+    // bottom left
+    x = antenna1.x;
+    y = antenna1.y;
+    while x >= 0 && y < map_height && antenna1.y > antenna2.y && antenna1.x < antenna2.x {
+        debug!("Bottom Left Antinode");
+        antinodes.push(Position {
+            x,
+            y,
+            frequency: antenna1.frequency,
+        });
+        x -= width;
+        y += height;
+    }
+
+    // bottom right
+    x = antenna1.x;
+    y = antenna1.y;
+    while x < map_width && y < map_height && antenna1.y > antenna2.y && antenna1.x > antenna2.x {
+        debug!("Bottom Right Antinode");
+        antinodes.push(Position {
+            x,
+            y,
+            frequency: antenna1.frequency,
+        });
+        x += width;
+        y += height;
+    }
+    debug!("Antinodes: {:?}", antinodes);
+    antinodes
 }
 
 fn calculate_antinodes(antenna1: Position, antenna2: Position) -> (Position, Position) {
@@ -144,7 +223,7 @@ fn calculate_antinodes(antenna1: Position, antenna2: Position) -> (Position, Pos
     (antinode1, antinode2)
 }
 
-fn calculate_all_antinodes(file_path: Utf8PathBuf) -> usize {
+fn calculate_all_antinodes(file_path: Utf8PathBuf, harmonize: bool) -> usize {
     let (map, width, height) = parse_file(file_path);
     let mut antinode_map: HashSet<Position> = HashSet::new();
 
@@ -155,10 +234,23 @@ fn calculate_all_antinodes(file_path: Utf8PathBuf) -> usize {
                     if antenna1 == antenna2 {
                         continue;
                     }
-                    let (antinode1, antinode2) =
-                        calculate_antinodes(antenna1.to_owned(), antenna2.to_owned());
-                    antinode_map.insert(antinode1);
-                    antinode_map.insert(antinode2);
+                    if harmonize {
+                        let antinodes = calculate_limitless_antinodes(
+                            antenna1,
+                            antenna2,
+                            harmonize,
+                            width as i32,
+                            height as i32,
+                        );
+                        for node in antinodes {
+                            antinode_map.insert(node);
+                        }
+                    } else {
+                        let (antinode1, antinode2) =
+                            calculate_antinodes(antenna1.to_owned(), antenna2.to_owned());
+                        antinode_map.insert(antinode1);
+                        antinode_map.insert(antinode2);
+                    }
                 }
             }
         }
@@ -272,7 +364,22 @@ mod tests {
         test_init();
         assert_eq!(
             14,
-            calculate_all_antinodes(Utf8PathBuf::from("./src/puzzle_inputs/day8_sample2.txt"))
+            calculate_all_antinodes(
+                Utf8PathBuf::from("./src/puzzle_inputs/day8_sample2.txt"),
+                false
+            )
+        )
+    }
+
+    #[test]
+    fn test_calculate_all_antinodes_from_sample2_harmonize() {
+        test_init();
+        assert_eq!(
+            34,
+            calculate_all_antinodes(
+                Utf8PathBuf::from("./src/puzzle_inputs/day8_sample2.txt"),
+                true
+            )
         )
     }
 }

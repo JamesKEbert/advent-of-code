@@ -15,3 +15,7 @@ Hopefully the next days are a bit easier and I can catch up 😅
 ### Day 7
 
 This was surprisingly easy! I hate recurision 100% still though. But was easy though.
+
+### Day 8
+
+I actually enjoyed this one a fair amount--it was really slick using the HashSets, they worked wonders for dealing with the frequencies. Could use some polish/it's a little brittle (the checks to determine which quadrant are bug prone), but more than fine for AoC IMO.
