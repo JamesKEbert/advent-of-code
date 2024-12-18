@@ -1,4 +1,4 @@
-use std::usize;
+use std::{fmt::Display, usize};
 
 use camino::Utf8PathBuf;
 use clap::Subcommand;
@@ -30,11 +30,82 @@ enum Block {
     Empty,
 }
 
+struct Block2Vec(Vec<Block2>);
+impl Display for Block2Vec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for block in self.0.iter() {
+            write!(f, "{}", block)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum Block2 {
+    File(File),
+    Empty(Empty),
+}
+
+impl Display for Block2 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Block2::File(file) => {
+                for _ in 0..file.block_length {
+                    write!(f, "{}", file.index)?;
+                }
+                Ok(())
+            }
+            Block2::Empty(empty) => {
+                for _ in 0..empty.block_length {
+                    write!(f, ".")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct File {
+    index: usize,
+    block_length: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Empty {
+    block_length: usize,
+}
+
+fn parse_disk_map_block2(disk: &str) -> Vec<Block2> {
+    debug!("Parsing Disk Map into Block2 format: '{}'", disk);
+    let mut parsed_disk = vec![];
+
+    let mut file_indicator = true;
+    let mut file_index = 0;
+    for (index, char) in disk.char_indices() {
+        let block_length = char.to_digit(10).expect("Valid Numbers") as usize;
+        if file_indicator {
+            parsed_disk.push(Block2::File(File {
+                index: file_index,
+                block_length,
+            }));
+            file_index += 1;
+        } else {
+            parsed_disk.push(Block2::Empty(Empty { block_length }));
+            // parsed_disk.append(&mut vec![Block2::Empty; block_length]);
+        }
+        file_indicator = !file_indicator;
+    }
+
+    debug!("Parsed Disk Map Block2 format: '{:?}'", parsed_disk);
+    parsed_disk
+}
+
 fn parse_disk_map(disk: &str) -> Vec<Block> {
     debug!("Parsing Disk Map '{}'", disk);
     let mut parsed_disk = vec![];
     let mut file_indicator = true;
-    for (index, char) in disk.chars().enumerate() {
+    for (index, char) in disk.char_indices() {
         trace!(
             "Index {}, Char: {}, file_indicator: {}",
             index,
@@ -120,6 +191,91 @@ fn calculate_file_checksum(filepath: Utf8PathBuf) -> u64 {
     checksum
 }
 
+fn sort_disk_map_block2(disk: Vec<Block2>) -> Vec<Block2> {
+    info!("Sorting disk Block2 map: '{}'", Block2Vec(disk.clone()));
+    let mut sorted_disk = disk.clone();
+
+    // Iterate from back to front
+    for (index, block) in disk.iter().rev().enumerate() {
+        match block {
+            Block2::File(file) => {
+                // for (empty_index, empty_block) in
+                //     sorted_disk[0..(disk.len() - 1 - index)].iter().enumerate()
+                // {
+
+                // }
+
+                let empty_option = sorted_disk[0..(disk.len() - 1 - index)]
+                    .iter()
+                    .enumerate()
+                    .find(|(_i, inner_block)| match inner_block {
+                        Block2::Empty(empty) => return empty.block_length >= file.block_length,
+                        _ => false,
+                    });
+
+                if empty_option.is_some() {
+                    let (empty_index, empty_block) = empty_option.expect("To be valid empty");
+                    trace!(
+                        "Empty Index '{}', empty block '{}', File Index '{}', file block '{}'",
+                        empty_index,
+                        empty_block,
+                        index,
+                        block
+                    );
+
+                    match empty_block {
+                        Block2::Empty(empty) => {
+                            if empty.block_length > file.block_length {
+                                sorted_disk[empty_index] = Block2::Empty(Empty {
+                                    block_length: empty.block_length - file.block_length,
+                                });
+                                sorted_disk.insert(empty_index, block.clone());
+                            } else if empty.block_length == file.block_length {
+                                sorted_disk[empty_index] = block.clone();
+                            } else {
+                                // Shouldn't be possible due to filter
+                                panic!("Empty Block length less than file block length");
+                            }
+                            // Replace moved file with empty
+                            sorted_disk[disk.len() - index] = Block2::Empty(Empty {
+                                block_length: file.block_length,
+                            });
+                        }
+                        _ => panic!("Unexpected File Block2!"),
+                    }
+                }
+
+                // // Iterate from front to back
+                // for (front_index, front_block) in
+                //     sorted_disk[0..(disk.len() - 1 - index)].iter().enumerate()
+                // {
+                //     match front_block {
+                //         Block2::Empty(empty_block) => {
+                //             if empty_block.block_length > file_block.block_length {
+                //                 sorted_disk.insert(front_index, block.clone());
+                //             } else if empty_block.block_length == file_block.block_length {
+                //                 sorted_disk.insert(front_index, block.clone());
+                //             }
+                //         }
+                //         Block2::File(_) => (),
+                //     }
+                // }
+            }
+            Block2::Empty(_) => (),
+        }
+        trace!(
+            "Partially sorted disk block2 map: '{}'",
+            Block2Vec(sorted_disk.clone())
+        );
+    }
+
+    info!(
+        "Sorted disk Block2 map: '{}'",
+        Block2Vec(sorted_disk.clone())
+    );
+    sorted_disk
+}
+
 #[cfg(test)]
 mod tests {
     use camino::Utf8PathBuf;
@@ -184,5 +340,94 @@ mod tests {
             1928,
             calculate_file_checksum(Utf8PathBuf::from("./src/puzzle_inputs/day9_sample.txt"))
         )
+    }
+
+    #[test]
+    fn test_parse_block2_disk() {
+        test_init();
+        assert_eq!(
+            vec![
+                Block2::File(File {
+                    index: 0,
+                    block_length: 1
+                }),
+                Block2::Empty(Empty { block_length: 2 }),
+                // Block2::Empty,
+                Block2::File(File {
+                    index: 1,
+                    block_length: 3
+                }),
+                Block2::Empty(Empty { block_length: 4 }),
+                // Block2::Empty,
+                // Block2::Empty,
+                // Block2::Empty,
+                Block2::File(File {
+                    index: 2,
+                    block_length: 5
+                }),
+            ],
+            parse_disk_map_block2("12345")
+        )
+    }
+
+    #[test]
+    fn test_sort_disk_map_block2_simple() {
+        test_init();
+        let sample_sorted_map = vec![
+            Block2::File(File {
+                index: 0,
+                block_length: 2,
+            }),
+            Block2::File(File {
+                index: 9,
+                block_length: 2,
+            }),
+            Block2::File(File {
+                index: 2,
+                block_length: 1,
+            }),
+            Block2::File(File {
+                index: 1,
+                block_length: 3,
+            }),
+            Block2::File(File {
+                index: 7,
+                block_length: 3,
+            }),
+            Block2::Empty(Empty { block_length: 1 }),
+            Block2::File(File {
+                index: 4,
+                block_length: 2,
+            }),
+            Block2::Empty(Empty { block_length: 1 }),
+            Block2::File(File {
+                index: 3,
+                block_length: 3,
+            }),
+            Block2::Empty(Empty { block_length: 4 }),
+            Block2::File(File {
+                index: 5,
+                block_length: 4,
+            }),
+            Block2::Empty(Empty { block_length: 1 }),
+            Block2::File(File {
+                index: 6,
+                block_length: 4,
+            }),
+            Block2::Empty(Empty { block_length: 5 }),
+            Block2::File(File {
+                index: 8,
+                block_length: 4,
+            }),
+            Block2::Empty(Empty { block_length: 2 }),
+        ];
+        debug!(
+            "Sample Sorted Map: '{}'",
+            Block2Vec(sample_sorted_map.clone())
+        );
+        assert_eq!(
+            sample_sorted_map,
+            sort_disk_map_block2(parse_disk_map_block2("2333133121414131402"))
+        ) //00992111777.44.333....5555.6666.....8888..
     }
 }
