@@ -1,8 +1,10 @@
 # advent-of-code
 
-My (laughable?) attempts at Advent of Code 🎄
+My attempts at Advent of Code 🎄
 
 ## 2024
+
+Some notes for 2024:
 
 ### Day 6
 
